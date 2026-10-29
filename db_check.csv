@@ -1,0 +1,4 @@
+Nombre,Cédula,Perfil,ID Operador,Serial ,ATR,Subsidio,Reembolso,Saldo,Estado
+Wilson Varela,1069432843,Operador,0000 1020,1010 0000 5581 8041,3b8480010111200336,0,0,0,Activa
+Valeria Hernández,1024553483,Adulto,0000 1030,1010 0001 6840 6114,3b8480010000000005,0,2500,0,Inactiva
+Antonio Banderas,1234567890,Discapacidad,0000 1031,1010 0002 6468 6361,3b8480010e5131016a,25000,7000,0,Inactiva

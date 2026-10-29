@@ -1,0 +1,14 @@
+# Dependencias de Node
+node_modules/
+package-lock.json
+
+# Archivos temporales y de depuración
+scratch/
+*.log
+bridge_error.txt
+build_log.txt
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini

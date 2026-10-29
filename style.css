@@ -1,0 +1,773 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', sans-serif;
+}
+
+:root {
+    /* COLORES PRINCIPALES - Puedes cambiarlos aquí y se aplicarán a toda la app */
+    --tm-gray-bg: #e5e7e9;
+    /* Gris de fondo de la terminal */
+    --tm-header-bg: #8a8b8c;
+    /* Gris de la cabecera (donde está el logo y reloj) */
+    --tm-orange: #ff6600;
+    /* Naranja corporativo (Banners y botones) */
+    --tm-dark-gray: #333333;
+    /* Gris oscuro (Etiquetas de filas y botones) */
+    --tm-white: #ffffff;
+    --tm-text: #000000;
+    --tm-red: #cc0000;
+    /* Rojo para mensajes de error o advertencia */
+}
+
+body {
+    background-color: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.terminal {
+    width: 1100px;
+    /* ANCHO DE LA VENTANA - Si quieres que sea más ancha, aumenta este valor */
+    height: 700px;
+    /* ALTO DE LA VENTANA - Si quieres que sea más alta, aumenta este valor */
+    background-color: var(--tm-gray-bg);
+    border: 12px solid #555;
+    /* GROSOR Y COLOR DEL MARCO EXTERIOR */
+    border-radius: 10px;
+    /* REDONDEADO DE LAS ESQUINAS DEL MARCO */
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+    position: relative;
+    overflow: hidden;
+}
+
+/* HEADER */
+header {
+    height: 60px;
+    background-color: var(--tm-header-bg);
+    border-bottom: 2px solid #ccc;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    justify-content: space-between;
+}
+
+.tm-logo {
+    height: 40px;
+    background: #000;
+    color: #ffcc00;
+    font-weight: 900;
+    padding: 0 15px;
+    border-radius: 4px;
+    font-size: 1.4rem;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+}
+
+.header-controls {
+    display: flex;
+    gap: 12px;
+    margin: 0 50px;
+    /* Separar del logo y del reloj */
+    flex: 1;
+    justify-content: center;
+}
+
+.btn-tool {
+    background: linear-gradient(135deg, #333, #444);
+    border: 1px solid #555;
+    color: white;
+    height: 48px;
+    padding: 0 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.btn-tool:hover {
+    background: var(--tm-orange);
+    color: black;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+    border-color: var(--tm-orange);
+}
+
+.btn-tool .btn-text {
+    letter-spacing: 0.5px;
+}
+
+.btn-tool .dot {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 8px;
+    height: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.datetime {
+    display: flex;
+    gap: 30px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.3rem;
+    color: #333;
+}
+
+/* CONTENT AREA */
+.screen-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background-color: #f0f3f5;
+}
+
+.screen {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    width: 100%;
+    position: relative;
+    background-color: white;
+    /* Asegurar fondo blanco */
+    align-items: center;
+    /* Centrar horizontalmente */
+}
+
+.screen.active {
+    display: flex !important;
+}
+
+/* BACKGROUNDS */
+.screen-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* COORDINATE-BASED FIELDS */
+.coordinate-field {
+    position: absolute;
+    z-index: 10;
+    font-size: 2.22rem;
+    /* Ligeramente más grande para que se vea bien */
+    font-weight: 800;
+    color: #000;
+    white-space: nowrap;
+}
+
+.coordinate-field.white {
+    color: white;
+}
+
+/* BANNERS DE PANTALLA (Template Pro) */
+/* BANNERS NARANJA (Títulos superiores) */
+.banner-orange {
+    background-color: var(--tm-orange);
+    color: white;
+    font-size: 2.8rem;
+    /* TAMAÑO DE LETRA DEL TÍTULO - Aumenta para letras más grandes */
+    font-weight: 800;
+    text-align: center;
+    padding: 10px 40px;
+    /* ESPACIO INTERNO (Arriba/Abajo y Lados) */
+    width: 100%;
+    margin-bottom: 20px;
+
+    /* EFECTO DE ESQUINAS: 50px es muy redondo, 0 es punta afilada */
+    border-top-left-radius: 50px;
+    border-bottom-right-radius: 50px;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.banner-light-gray {
+    background-color: #d1d5d8;
+    color: #333;
+    font-size: 2.2rem;
+    font-weight: 900;
+    text-align: center;
+    padding: 15px;
+    width: 100%;
+}
+
+.main-content-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    padding: 0;
+}
+
+#screen-welcome .main-content-center {
+    transform: translateY(-30px);
+}
+
+.text-large {
+    font-size: 5rem;
+    /* Agrandado como pidió el usuario */
+    font-weight: 950;
+    color: #000;
+    letter-spacing: -1px;
+}
+
+.text-medium {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #333;
+}
+
+.text-medium-red {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--tm-red);
+}
+
+/* RECHARGE/IDLE SCREEN ELEMENTS */
+.idle-text {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.idle-row-1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: #000;
+}
+
+.idle-row-2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #333;
+    margin: 15px 0;
+}
+
+.idle-row-3 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--tm-red);
+}
+
+.recharge-rows {
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+}
+
+.info-row {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    font-size: 2.2rem;
+    font-weight: 800;
+}
+
+.row-label {
+    width: 250px;
+    background-color: var(--tm-dark-gray);
+    color: var(--tm-white);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-left: 30px;
+    border-bottom-right-radius: 35px;
+    z-index: 2;
+}
+
+.row-value {
+    flex: 1;
+    background-color: var(--tm-orange);
+    color: var(--tm-white);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 30px;
+    margin-left: -25px;
+    z-index: 1;
+}
+
+.input-container {
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+}
+
+.manual-input {
+    font-size: 4rem;
+    font-weight: 900;
+    color: #000;
+    border-bottom: 6px solid #000;
+    min-width: 350px;
+    text-align: center;
+}
+
+/* ADMIN MENU */
+/* ADMIN MENU STYLES */
+/* --- SECCIÓN DEL MENÚ ADMINISTRATIVO (TECLA F2) --- */
+
+.admin-menu-list {
+    width: 100%;
+    /* ANCHO TOTAL: Hace que las barras naranjas lleguen de lado a lado */
+    margin-top: 20px;
+    /* MARGEN SUPERIOR: Espacio entre el banner naranja y la lista */
+    margin-left: 0;
+    /* MARGEN IZQUIERDO: 0 para que inicie desde el puro borde */
+    display: flex;
+    /* MODO FLEX: Organiza los items uno debajo de otro */
+    flex-direction: column;
+    /* DIRECCIÓN: Los botones se apilan verticalmente */
+    gap: 12px;
+    /* SEPARACIÓN: Espacio entre cada botón de la lista */
+}
+
+.admin-item {
+    background-color: transparent;
+    /* FONTO TRANSPARENTE: Por defecto no tienen color */
+    color: black;
+    /* COLOR DE LETRA: Negro para las opciones no señaladas */
+    padding: 22px 50px;
+    /* ESPACIADO: 22px arriba/abajo, 50px a la izquierda del texto */
+    font-size: 2.3rem;
+    /* TAMAÑO DE LETRA: Qué tan grande se ve el texto F1, F2... */
+    font-weight: 850;
+    /* GROSOR DE LETRA: Casi negrita extrema */
+    border-radius: 0;
+    /* REDONDEADO: 0 para que las barras sean Rectas en los bordes */
+    border-left: 15px solid transparent;
+    /* BORDE LATERAL: Espacio para la barrita de selección */
+    transition: all 0.2s;
+    /* ANIMACIÓN: Suaviza el cambio de color al seleccionar */
+    text-align: left;
+    /* ALINEACIÓN: El texto siempre se queda a la IZQUIERDA */
+    width: 100%;
+    /* ANCHO: El botón ocupa todo el ancho de la ventana */
+    cursor: pointer;
+    /* PUNTERO: Muestra la mano al pasar el mouse */
+}
+
+.admin-item.active {
+    background-color: var(--tm-orange);
+    /* FONDO NARANJA: Solo cuando la opción está señalada */
+    color: white;
+    /* COLOR DE LETRA: Cambia a blanco cuando el fondo es naranja */
+    border-left: 15px solid #cc6600;
+    /* BARRITA DECORATIVA: Un naranja más oscuro a la izquierda */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    /* SOMBRA: Da efecto de relieve a la opción activa */
+}
+
+/* --- DISEÑO DE LAS FILAS DIAGONALES (Recarga, Subsidio, Login) --- */
+
+.info-row-container {
+    display: flex;
+    /* MODO FLEX: Organiza las filas una bajo la otra */
+    flex-direction: column;
+    /* COLUMNA: Apila las filas de forma vertical */
+    gap: 6px;
+    /* SEPARACIÓN: Espacio entre una fila y la siguiente */
+    width: 100%;
+    /* ANCHO: Ocupa todo el ancho de la pantalla (Edge-to-Edge) */
+}
+
+.info-row-pro {
+    display: flex;
+    /* MODO FLEX: Organiza la etiqueta gris y el valor naranja */
+    height: 100px;
+    /* ALTO: Qué tan gruesa se ve la fila (puedes subirlo a 120px) */
+    width: 100%;
+    /* ANCHO: Asegura que llegue a ambos bordes */
+}
+
+.info-row-pro .label-box {
+    width: 40%;
+    /* ANCHO GRIS: Qué tanto espacio ocupa la etiqueta (ej: 40% o 50%) */
+    background-color: #3e3e3e;
+    /* COLOR GRIS: Este es el gris oscuro profesional que querías */
+    color: white;
+    /* COLOR LETRA: Blanco para que resalte en el gris oscuro */
+    font-size: 2.8rem;
+    /* TAMAÑO LETRA: Ajusta qué tan grande se ve el nombre (ej: Saldo) */
+    font-weight: 800;
+    /* GROSOR LETRA: Estilo negrita intensa */
+    padding-left: 40px;
+    /* MARGEN TEXTO: Espacio desde el borde izquierdo al texto */
+    display: flex;
+    /* MODO FLEX: Para centrar el texto verticalmente */
+    align-items: center;
+    /* CENTRADO: Alinea el texto al medio de la caja */
+    clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+    /* CORTE DIAGONAL: Da el efecto de inclinación */
+    position: relative;
+    /* POSICIÓN: Mantiene la caja en su lugar */
+    z-index: 2;
+    /* CAPA: Asegura que la parte gris quede sobre la naranja */
+}
+
+.info-row-pro .value-box {
+    flex: 1;
+    /* FLEX: Hace que la parte naranja rellene el resto del espacio */
+    background: var(--tm-orange);
+    /* COLOR NARANJA: Viene de las variables de arriba */
+    color: white;
+    /* COLOR LETRA: Blanco para los números */
+    font-size: 3.5rem;
+    /* TAMAÑO DATO: Qué tan grande se ve el saldo o valor */
+    font-weight: 900;
+    /* GROSOR DATO: Negrita extra para los números */
+    padding-right: 40px;
+    /* MARGEN DERECHO: Espacio entre el número y el borde derecho */
+    margin-left: -60px;
+    /* SOLAPE: Se mete bajo el gris para que no haya huecos blancos */
+    clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%);
+    /* CORTE DIAGONAL DERECHO */
+    display: flex;
+    /* MODO FLEX: Para alinear el contenido */
+    align-items: center;
+    /* CENTRADO: Alinea el número al medio verticalmente */
+    justify-content: flex-end;
+    /* ALINEACIÓN: Empuja los números hacia la derecha */
+    z-index: 1;
+    /* CAPA: Queda por debajo del gris */
+}
+
+/* CAJA BASE INPUT (White box) */
+.manual-input-box {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.white-input-field {
+    background: white;
+    border: 1px solid #aaa;
+    color: black;
+    height: 100px;
+    min-width: 500px;
+    display: flex;
+    align-items: center;
+    padding: 0 35px;
+    font-size: 5.5rem;
+    font-weight: 900;
+    box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+}
+
+.pesos-symbol {
+    font-family: 'Outfit', sans-serif;
+    font-size: 6rem;
+    font-weight: 800;
+    color: #333;
+    margin-right: 25px;
+}
+
+/* SUCCESS SUBSIDY ROWS (Matching Image 4) */
+.success-row-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 15px;
+    width: 95%;
+}
+
+/* REDESIGNED RECEIPT */
+/* RECEIPT BACKDROP AND OVERLAY */
+.virtual-receipt {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 450px;
+    height: 90vh;
+    /* Ocupa casi todo el alto */
+    background: #fff;
+    box-shadow: 0 0 100px rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    /* Por encima de todo */
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #000;
+}
+
+.virtual-receipt.show {
+    visibility: visible;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* Efecto de fondo oscuro al mostrar la tirilla */
+body:has(.virtual-receipt.show)::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    /* Fondo muy oscuro para centrar atención */
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+}
+
+.close-receipt {
+    position: absolute;
+    top: -45px;
+    right: 0;
+    background: var(--tm-orange);
+    border: none;
+    color: black;
+    padding: 10px 20px;
+    font-weight: 900;
+    cursor: pointer;
+    border-radius: 5px;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.close-receipt:hover {
+    background: #fff;
+    transform: scale(1.05);
+}
+
+.receipt-content {
+    overflow-y: auto;
+    /* Permite scroll interno si la tirilla es muy larga */
+    flex: 3;
+    padding-right: 10px;
+}
+
+/* Estilización del scroll de la tirilla */
+.receipt-content::-webkit-scrollbar {
+    width: 5px;
+}
+
+.receipt-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.receipt-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.receipt-logo {
+    font-weight: 900;
+    font-size: 1.1rem;
+}
+
+.receipt-title {
+    margin-top: 5px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.receipt-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    width: 100%;
+}
+
+.receipt-row span:first-child {
+    text-align: left;
+    padding-right: 10px;
+}
+
+.receipt-row span:last-child {
+    text-align: right;
+    font-weight: bold;
+}
+
+.receipt-divider {
+    text-align: center;
+    margin: 4px 0;
+    border-top: 1px dashed #000;
+    line-height: 1;
+}
+
+/* HEADER CONTROLS (Fixed Top Right) */
+.header-controls {
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    display: flex;
+    gap: 12px;
+    z-index: 5000;
+    /* Siempre encima de todo */
+}
+
+.btn-tool {
+    background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
+    border: 1px solid #444;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    /* Estilo cápsula */
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 140px;
+    justify-content: center;
+}
+
+.btn-tool:hover {
+    background: var(--tm-orange);
+    color: black;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(255, 153, 0, 0.3);
+    border-color: var(--tm-orange);
+}
+
+.btn-tool i {
+    font-size: 1.1rem;
+}
+
+.btn-tool .dot {
+    width: 10px;
+    height: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-tool .btn-text {
+    font-size: 0.9rem;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: #1a1a1a;
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.qr-box {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.qr-box img {
+    width: 100%;
+}
+
+/* HARDWARE STATUS */
+.hw-status {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: red;
+    margin-right: 5px;
+}
+
+.dot.online {
+    background: #00ff00;
+}
+
+.header-device-badge {
+    background: #222;
+    color: #ff9900;
+    font-weight: 900;
+    font-size: 1.05rem;
+    padding: 3px 12px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    letter-spacing: 1px;
+    margin-left: 12px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.terminal-copyright-footer {
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 0.68rem;
+    color: #888888;
+    pointer-events: none;
+    letter-spacing: 0.2px;
+    font-weight: 500;
+    opacity: 0.85;
+    z-index: 5;
+}
+
+.btn-tool.active-dev {
+    border-color: var(--tm-orange);
+    color: #ffcc00;
+}

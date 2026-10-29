@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub de Control - Simulador TCA Multi-Dispositivo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --tm-orange: #ff6600;
+            --tm-yellow: #f1a100;
+            --tm-red: #cc0000;
+            --tm-dark: #121316;
+            --tm-card-bg: #1e2025;
+            --tm-border: #2e323b;
+            --tm-text: #f0f2f5;
+            --tm-muted: #8b92a0;
+            --success: #00e676;
+            --radius: 14px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--tm-dark);
+            color: var(--tm-text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 20px;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* HEADER */
+        .hub-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--tm-border);
+        }
+
+        .logo-title-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tm-brand-pill {
+            background: #000;
+            color: #ffcc00;
+            font-weight: 900;
+            font-style: italic;
+            font-size: 1.6rem;
+            padding: 4px 18px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            letter-spacing: -1px;
+        }
+
+        .hub-title h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .hub-title p {
+            font-size: 0.9rem;
+            color: var(--tm-muted);
+        }
+
+        .system-status-pills {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            background: var(--tm-card-bg);
+            border: 1px solid var(--tm-border);
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dot-ind {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .dot-ind.active {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* TOP ACTION BANNER */
+        .launcher-banner {
+            background: linear-gradient(135deg, rgba(255, 102, 0, 0.15), rgba(241, 161, 0, 0.05));
+            border: 1px solid rgba(255, 102, 0, 0.3);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .banner-info h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .banner-info p {
+            color: var(--tm-muted);
+            font-size: 0.9rem;
+        }
+
+        .btn-launch-all {
+            background: linear-gradient(135deg, var(--tm-orange), var(--tm-yellow));
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+        }
+
+        .btn-launch-all:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 102, 0, 0.5);
+        }
+
+        /* DEVICES GRID */
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .device-card {
+            background: var(--tm-card-bg);
+            border: 1px solid var(--tm-border);
+            border-radius: var(--radius);
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            position: relative;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .device-card:hover {
+            border-color: rgba(255, 102, 0, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .dev-badge-large {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dev-num {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--tm-orange);
+            line-height: 1;
+            letter-spacing: -0.5px;
+        }
+
+        .dev-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--tm-muted);
+            margin-top: 4px;
+            font-weight: 700;
+        }
+
+        .serial-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--tm-border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            text-align: right;
+        }
+
+        .serial-badge .serial-title {
+            font-size: 0.65rem;
+            color: var(--tm-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .serial-badge .serial-val {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #fff;
+        }
+
+        .hw-reader-info {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px dashed var(--tm-border);
+        }
+
+        .hw-reader-name {
+            font-family: 'Courier New', monospace;
+            color: #64b5f6;
+            font-weight: 600;
+        }
+
+        .card-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-card {
+            background: #272a33;
+            border: 1px solid var(--tm-border);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-card:hover {
+            background: #333844;
+            border-color: #4f5666;
+            color: #fff;
+        }
+
+        .btn-card.primary {
+            grid-column: span 2;
+            background: var(--tm-orange);
+            color: #000;
+            border-color: #b37700;
+            font-size: 0.95rem;
+            padding: 12px;
+        }
+
+        .btn-card.primary:hover {
+            background: #ff771a;
+            color: #000;
+        }
+
+        .btn-card.beep {
+            background: #2a2318;
+            color: #ffb74d;
+            border-color: #664411;
+        }
+
+        .btn-card.beep:hover {
+            background: #3d301b;
+            color: #ffcc80;
+        }
+
+        /* LIVE ACTIVITY FEED */
+        .activity-card {
+            background: var(--tm-card-bg);
+            border: 1px solid var(--tm-border);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .activity-header h3 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .log-box {
+            background: #0d0e11;
+            border: 1px solid #1f2229;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            height: 120px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .log-line {
+            color: #a0a6b5;
+        }
+
+        .log-line .timestamp {
+            color: #555c6d;
+        }
+
+        .log-line.card {
+            color: #69f0ae;
+        }
+
+        .log-line.beep {
+            color: #ffd54f;
+        }
+
+        /* MODAL */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: #1e2025;
+            border: 1px solid var(--tm-border);
+            border-radius: var(--radius);
+            padding: 28px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .qr-wrapper {
+            background: #fff;
+            padding: 14px;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 18px 0;
+        }
+
+        .qr-wrapper img {
+            display: block;
+            width: 220px;
+            height: 220px;
+        }
+
+        .modal-btn-close {
+            background: #2f333d;
+            border: none;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 14px;
+            width: 100%;
+        }
+
+        /* FOOTER */
+        .hub-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--tm-border);
+            text-align: center;
+            font-size: 0.75rem;
+            color: #6f7685;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header class="hub-header">
+            <div class="logo-title-group">
+                <div class="tm-brand-pill">TM</div>
+                <div class="hub-title">
+                    <h1>CENTRAL DE DISPOSITIVOS - RECAUDO BOGOTÁ</h1>
+                    <p>Simulador Multi-Pantalla para Lectores ACR1251</p>
+                </div>
+            </div>
+
+            <div class="system-status-pills">
+                <div class="pill">
+                    <span id="hw-dot" class="dot-ind"></span>
+                    <span id="hw-status-label">Bridge: Conectando...</span>
+                </div>
+                <div class="pill">
+                    <span id="db-dot" class="dot-ind"></span>
+                    <span id="db-status-label">DB: Sincronizando...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ACTION BANNER -->
+        <section class="launcher-banner">
+            <div class="banner-info">
+                <h2>Modo 3 Pantallas en 1 PC</h2>
+                <p>Haz clic para abrir los 3 terminales en ventanas separadas y arrastra una a cada pantalla.</p>
+            </div>
+            <button class="btn-launch-all" onclick="openAllTerminals()">
+                <i class="fas fa-external-link-alt"></i> Lanzar las 3 Terminales a la Vez
+            </button>
+        </section>
+
+        <!-- 3 DEVICES GRID -->
+        <section class="devices-grid">
+            <!-- DISPOSITIVO 0068 -->
+            <div class="device-card" id="card-dev-0068">
+                <div class="card-top">
+                    <div class="dev-badge-large">
+                        <span class="dev-num">0068</span>
+                        <span class="dev-label">Terminal de Carga</span>
+                    </div>
+                    <div class="serial-badge">
+                        <div class="serial-title">Serial Físico</div>
+                        <div class="serial-val">RR234-016879</div>
+                    </div>
+                </div>
+
+                <div class="hw-reader-info">
+                    <span>Lector Hardware:</span>
+                    <span class="hw-reader-name" id="reader-name-0068">PICC 0</span>
+                </div>
+
+                <div class="card-buttons">
+                    <a href="index.html?device=0068" target="_blank" class="btn-card primary">
+                        <i class="fas fa-desktop"></i> Abrir Terminal 0068
+                    </a>
+                    <button class="btn-card" onclick="openPeripheralModal('keyboard', '0068')">
+                        <i class="fas fa-keyboard"></i> Teclado QR
+                    </button>
+                    <button class="btn-card" onclick="openPeripheralModal('piu', '0068')">
+                        <i class="fas fa-tv"></i> Pantalla PIU
+                    </button>
+                    <button class="btn-card beep" style="grid-column: span 2;" onclick="beepDevice('0068')">
+                        <i class="fas fa-volume-up"></i> Hacer Sonar Lector (Beep)
+                    </button>
+                </div>
+            </div>
+
+            <!-- DISPOSITIVO 0069 -->
+            <div class="device-card" id="card-dev-0069">
+                <div class="card-top">
+                    <div class="dev-badge-large">
+                        <span class="dev-num">0069</span>
+                        <span class="dev-label">Terminal de Carga</span>
+                    </div>
+                    <div class="serial-badge">
+                        <div class="serial-title">Serial Físico</div>
+                        <div class="serial-val">RR234-016991</div>
+                    </div>
+                </div>
+
+                <div class="hw-reader-info">
+                    <span>Lector Hardware:</span>
+                    <span class="hw-reader-name" id="reader-name-0069">PICC 1</span>
+                </div>
+
+                <div class="card-buttons">
+                    <a href="index.html?device=0069" target="_blank" class="btn-card primary">
+                        <i class="fas fa-desktop"></i> Abrir Terminal 0069
+                    </a>
+                    <button class="btn-card" onclick="openPeripheralModal('keyboard', '0069')">
+                        <i class="fas fa-keyboard"></i> Teclado QR
+                    </button>
+                    <button class="btn-card" onclick="openPeripheralModal('piu', '0069')">
+                        <i class="fas fa-tv"></i> Pantalla PIU
+                    </button>
+                    <button class="btn-card beep" style="grid-column: span 2;" onclick="beepDevice('0069')">
+                        <i class="fas fa-volume-up"></i> Hacer Sonar Lector (Beep)
+                    </button>
+                </div>
+            </div>
+
+            <!-- DISPOSITIVO 0071 -->
+            <div class="device-card" id="card-dev-0071">
+                <div class="card-top">
+                    <div class="dev-badge-large">
+                        <span class="dev-num">0071</span>
+                        <span class="dev-label">Terminal de Carga</span>
+                    </div>
+                    <div class="serial-badge">
+                        <div class="serial-title">Serial Físico</div>
+                        <div class="serial-val">RR234-017108</div>
+                    </div>
+                </div>
+
+                <div class="hw-reader-info">
+                    <span>Lector Hardware:</span>
+                    <span class="hw-reader-name" id="reader-name-0071">PICC 2</span>
+                </div>
+
+                <div class="card-buttons">
+                    <a href="index.html?device=0071" target="_blank" class="btn-card primary">
+                        <i class="fas fa-desktop"></i> Abrir Terminal 0071
+                    </a>
+                    <button class="btn-card" onclick="openPeripheralModal('keyboard', '0071')">
+                        <i class="fas fa-keyboard"></i> Teclado QR
+                    </button>
+                    <button class="btn-card" onclick="openPeripheralModal('piu', '0071')">
+                        <i class="fas fa-tv"></i> Pantalla PIU
+                    </button>
+                    <button class="btn-card beep" style="grid-column: span 2;" onclick="beepDevice('0071')">
+                        <i class="fas fa-volume-up"></i> Hacer Sonar Lector (Beep)
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVE EVENT ACTIVITY -->
+        <section class="activity-card">
+            <div class="activity-header">
+                <h3><i class="fas fa-wave-square" style="color: var(--tm-orange);"></i> Actividad de Hardware en Vivo</h3>
+                <span style="font-size: 0.8rem; color: var(--tm-muted);">Detectando lecturas NFC en tiempo real</span>
+            </div>
+            <div class="log-box" id="activity-log">
+                <div class="log-line"><span class="timestamp">[INICIO]</span> Esperando eventos de los lectores ACR1251...</div>
+            </div>
+        </section>
+
+        <!-- FOOTER WITH LEGAL NOTICE -->
+        <footer class="hub-footer">
+            &copy; Creación y desarrollo: Wilson Varela Muñoz &bull; Propiedad intelectual del autor &bull; Uso formativo y de aprendizaje exclusivo para Recaudo Bogotá S.A.S. Todos los derechos reservados.
+        </footer>
+    </div>
+
+    <!-- MODAL QR PERIFÉRICOS -->
+    <div id="modal-qr-hub" class="modal" onclick="closePeripheralModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3 id="modal-qr-title" style="font-size: 1.2rem; font-weight: 800; color: #fff;">Periférico</h3>
+            <p id="modal-qr-desc" style="font-size: 0.85rem; color: var(--tm-muted); margin-top: 4px;">Escanea para conectar tu celular</p>
+            <div class="qr-wrapper">
+                <img id="modal-qr-img" src="" alt="Código QR">
+            </div>
+            <div>
+                <a id="modal-qr-link" href="#" target="_blank" style="color: var(--tm-orange); font-weight: 700; text-decoration: none; font-size: 0.9rem;">Abrir enlace en pestaña</a>
+            </div>
+            <button class="modal-btn-close" onclick="closePeripheralModal()">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        function logEvent(msg, type = '') {
+            const box = document.getElementById('activity-log');
+            const now = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `log-line ${type}`;
+            div.innerHTML = `<span class="timestamp">[${now}]</span> ${msg}`;
+            box.insertBefore(div, box.firstChild);
+            if (box.children.length > 30) box.removeChild(box.lastChild);
+        }
+
+        function getWsUrl() {
+            let host = window.location.hostname || 'localhost';
+            if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
+                let savedIp = localStorage.getItem('local_pc_ip');
+                if (savedIp) return `ws://${savedIp}:8080`;
+            }
+            return `ws://${host}:8080`;
+        }
+
+        let socket = null;
+        const hwDot = document.getElementById('hw-dot');
+        const hwLabel = document.getElementById('hw-status-label');
+        const dbDot = document.getElementById('db-dot');
+        const dbLabel = document.getElementById('db-status-label');
+
+        function connectWs() {
+            try {
+                socket = new WebSocket(getWsUrl());
+
+                socket.onopen = () => {
+                    hwDot.classList.add('active');
+                    hwLabel.innerText = "Bridge: Conectado (8080)";
+                    logEvent("Conectado con el Bridge de Hardware WebSocket.", "card");
+                    socket.send(JSON.stringify({ type: 'REQUEST_DEVICES' }));
+                    socket.send(JSON.stringify({ type: 'REQUEST_DB' }));
+                };
+
+                socket.onclose = () => {
+                    hwDot.classList.remove('active');
+                    hwLabel.innerText = "Bridge: Desconectado";
+                    logEvent("Desconectado del Bridge. Reintentando...", "beep");
+                    setTimeout(connectWs, 3000);
+                };
+
+                socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+
+                        if (data.type === 'CARD_DETECTED') {
+                            logEvent(`💳 Tarjeta detectada en <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong> (Lector: ${data.readerName}) &bull; UID: ${data.uid}`, 'card');
+                        } else if (data.type === 'CARD_REMOVED') {
+                            logEvent(`📤 Tarjeta retirada de <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong>`, '');
+                        } else if (data.type === 'DEVICES_INFO') {
+                            updateDevicesInfo(data);
+                        } else if (data.type === 'DB_SYNC') {
+                            dbDot.classList.add('active');
+                            const lines = (data.data || '').split(/\r?\n/).length - 1;
+                            dbLabel.innerText = `DB: OK (${lines} registros)`;
+                            logEvent(`Base de Datos Google Sheets sincronizada (${lines} perfiles).`, 'card');
+                        } else if (data.type === 'DB_SYNC_START') {
+                            dbLabel.innerText = "DB: Sincronizando...";
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+            } catch (err) {
+                setTimeout(connectWs, 3000);
+            }
+        }
+        connectWs();
+
+        function updateDevicesInfo(info) {
+            if (!info || !info.devices) return;
+            ['0068', '0069', '0071'].forEach(id => {
+                const dev = info.devices[id];
+                const rNameEl = document.getElementById(`reader-name-${id}`);
+                if (dev && rNameEl) {
+                    const cleanName = (dev.readerName || '').replace('ACS ACR1251 1S CL Reader ', '');
+                    rNameEl.innerText = cleanName || dev.readerName;
+                }
+            });
+        }
+
+        function beepDevice(devId) {
+            logEvent(`🔔 Enviando señal de sonido (Buzzer) al Dispositivo ${devId}...`, 'beep');
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'BEEP_DEVICE',
+                    deviceId: devId
+                }));
+            } else {
+                fetch(`/api/beep?device=${devId}`).catch(() => {});
+            }
+        }
+
+        function openAllTerminals() {
+            const devices = ['0068', '0069', '0071'];
+            devices.forEach((dev, index) => {
+                const left = 50 + index * 40;
+                const top = 50 + index * 40;
+                window.open(`index.html?device=${dev}`, `terminal_${dev}`, `width=1120,height=740,left=${left},top=${top}`);
+            });
+            logEvent("🚀 3 Terminales lanzadas en ventanas separadas.", "card");
+        }
+
+        function openPeripheralModal(type, devId) {
+            const modal = document.getElementById('modal-qr-hub');
+            const title = document.getElementById('modal-qr-title');
+            const desc = document.getElementById('modal-qr-desc');
+            const img = document.getElementById('modal-qr-img');
+            const link = document.getElementById('modal-qr-link');
+
+            let host = window.location.host;
+            let protocol = window.location.protocol;
+
+            if (host.includes('localhost') || host.includes('127.0.0.1') || protocol === 'file:') {
+                let savedIp = localStorage.getItem('local_pc_ip');
+                const userIp = prompt(`Para conectar tu celular al Dispositivo ${devId}:\nEscribe la IP local de tu PC:`, savedIp || "");
+                if (userIp) {
+                    localStorage.setItem('local_pc_ip', userIp);
+                    host = `${userIp}:3000`;
+                    protocol = 'http:';
+                }
+            }
+
+            const path = (type === 'keyboard') ? 'keyboard.html' : 'piu.html';
+            const finalUrl = `${protocol}//${host}/${path}?device=${devId}`;
+
+            if (type === 'keyboard') {
+                title.innerText = `Teclado Virtual TCA - Dispositivo ${devId}`;
+                desc.innerText = `Escanea el QR para usar tu celular como teclado del Dispositivo ${devId}`;
+            } else {
+                title.innerText = `Pantalla PIU - Dispositivo ${devId}`;
+                desc.innerText = `Escanea el QR para ver la pantalla del usuario del Dispositivo ${devId}`;
+            }
+
+            img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(finalUrl)}`;
+            link.href = finalUrl;
+            link.innerText = `Abrir en nueva pestaña (?device=${devId})`;
+
+            modal.classList.add('active');
+        }
+
+        function closePeripheralModal() {
+            document.getElementById('modal-qr-hub').classList.remove('active');
+        }
+    </script>
+</body>
+
+</html>

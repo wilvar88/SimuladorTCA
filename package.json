@@ -1,0 +1,21 @@
+{
+  "name": "simulador-de-pago",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start:bridge": "node bridge.js"
+  },
+  "dependencies": {
+    "nfc-pcsc": "^0.8.1",
+    "ws": "^8.13.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "node-gyp": "^12.2.0"
+  }
+}

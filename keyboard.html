@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Teclado TCA - Control Remoto</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --keyboard-scale: 2.0;
+            --key-black: #080808;
+            --key-grey: #1a1a1a;
+            --key-border: #333;
+            --key-yellow: #f1a100;
+            --bg-color: #f0f0f0;
+            --tm-orange: #f1a100;
+            --tm-red: #d32f2f;
+        }
+
+        body {
+            margin: 0;
+            padding: 10px;
+            background-color: var(--bg-color);
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            touch-action: manipulation;
+        }
+
+        .device-selector-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: calc(320px * var(--keyboard-scale));
+            max-width: 95vw;
+            margin-bottom: 12px;
+            background: #fff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+        }
+
+        .device-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #222;
+        }
+
+        .status-pill {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #bbb;
+        }
+
+        .status-pill.online {
+            background: #00c853;
+            box-shadow: 0 0 6px #00c853;
+        }
+
+        .device-tabs {
+            display: flex;
+            gap: 6px;
+        }
+
+        .device-tab {
+            background: #eee;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .device-tab.active {
+            background: var(--tm-orange);
+            color: #fff;
+            border-color: #b37700;
+        }
+
+        .keyboard-frame {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: calc(320px * var(--keyboard-scale));
+            max-width: 95vw;
+            box-sizing: border-box;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .key {
+            aspect-ratio: 1.2/1;
+            background: var(--key-black);
+            border: 2px solid #000;
+            border-radius: calc(8px * var(--keyboard-scale));
+            color: white;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow:
+                0 calc(4px * var(--keyboard-scale)) 0 #222,
+                0 calc(6px * var(--keyboard-scale)) calc(8px * var(--keyboard-scale)) rgba(0, 0, 0, 0.4);
+            transition: all 0.05s;
+            position: relative;
+            text-align: center;
+            padding: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .key:active {
+            transform: translateY(calc(3px * var(--keyboard-scale)));
+            box-shadow: 0 calc(1px * var(--keyboard-scale)) 0 #222, 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+
+        .key-main {
+            font-size: calc(1rem * var(--keyboard-scale));
+            font-weight: 800;
+        }
+
+        .key-sub {
+            font-size: calc(0.4rem * var(--keyboard-scale));
+            font-weight: 700;
+            margin-top: -2px;
+        }
+
+        .key.ok {
+            background: var(--key-yellow);
+            color: white;
+            box-shadow:
+                0 calc(4px * var(--keyboard-scale)) 0 #b37700,
+                0 calc(6px * var(--keyboard-scale)) calc(8px * var(--keyboard-scale)) rgba(0, 0, 0, 0.4);
+            border-color: #b37700;
+        }
+
+        .key.ok:active {
+            box-shadow: 0 calc(1px * var(--keyboard-scale)) 0 #b37700;
+        }
+
+        .key.large-text .key-main {
+            font-size: calc(0.8rem * var(--keyboard-scale));
+        }
+
+        .footer-note {
+            margin-top: 15px;
+            text-align: center;
+            opacity: 0.6;
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="device-selector-bar">
+        <div class="device-badge">
+            <span id="status-pill" class="status-pill" title="Desconectado"></span>
+            <span>DISPOSITIVO: <span id="current-dev-label" style="color: var(--tm-orange);">0068</span></span>
+        </div>
+        <div class="device-tabs">
+            <button class="device-tab" id="tab-0068" onclick="switchDevice('0068')">0068</button>
+            <button class="device-tab" id="tab-0069" onclick="switchDevice('0069')">0069</button>
+            <button class="device-tab" id="tab-0071" onclick="switchDevice('0071')">0071</button>
+        </div>
+    </div>
+
+    <div class="keyboard-frame">
+        <div class="grid">
+            <!-- Row 1 -->
+            <button class="key" onclick="sendKey('F1')">
+                <span class="key-main">F1</span>
+                <span class="key-sub">(1.000)</span>
+            </button>
+            <button class="key" onclick="sendKey('F2')">
+                <span class="key-main">F2</span>
+                <span class="key-sub">(10.000)</span>
+            </button>
+            <button class="key" onclick="sendKey('F3')">
+                <span class="key-main">F3</span>
+            </button>
+            <button class="key large-text" onclick="sendKey('MENU')">
+                <span class="key-main">Menú</span>
+            </button>
+
+            <!-- Row 2 -->
+            <button class="key" onclick="sendKey('1')"><span class="key-main">1</span></button>
+            <button class="key" onclick="sendKey('2')"><span class="key-main">2</span></button>
+            <button class="key" onclick="sendKey('3')"><span class="key-main">3</span></button>
+            <button class="key" onclick="sendKey('F4')"><span class="key-main">F4</span></button>
+
+            <!-- Row 3 -->
+            <button class="key" onclick="sendKey('4')"><span class="key-main">4</span></button>
+            <button class="key" onclick="sendKey('5')"><span class="key-main">5</span></button>
+            <button class="key" onclick="sendKey('6')"><span class="key-main">6</span></button>
+            <button class="key" onclick="sendKey('F5')"><span class="key-main">F5</span></button>
+
+            <!-- Row 4 -->
+            <button class="key" onclick="sendKey('7')"><span class="key-main">7</span></button>
+            <button class="key" onclick="sendKey('8')"><span class="key-main">8</span></button>
+            <button class="key" onclick="sendKey('9')"><span class="key-main">9</span></button>
+            <button class="key" onclick="sendKey('CANCEL')"><span class="key-main">C</span></button>
+
+            <!-- Row 5 -->
+            <button class="key" onclick="sendKey('00')">
+                <span class="key-main">00</span>
+                <span class="key-sub">(Prt)</span>
+            </button>
+            <button class="key" onclick="sendKey('0')"><span class="key-main">0</span></button>
+            <button class="key" onclick="sendKey('BKSP')">
+                <span class="key-main">&lt;&lt;</span>
+                <span class="key-sub">(Lock)</span>
+            </button>
+            <button class="key ok" onclick="sendKey('OK')">
+                <span class="key-main">OK</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        <strong>RECAUDO BOGOTÁ - SIMULADOR TCA</strong><br>
+        <span id="bridge-status-text">Conectando al Hardware Bridge...</span>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentDeviceId = urlParams.get('device') || '0068';
+
+        function updateDeviceUI() {
+            document.getElementById('current-dev-label').innerText = currentDeviceId;
+            document.title = `Teclado TCA - [${currentDeviceId}]`;
+            ['0068', '0069', '0071'].forEach(id => {
+                const tab = document.getElementById(`tab-${id}`);
+                if (tab) {
+                    if (id === currentDeviceId) tab.classList.add('active');
+                    else tab.classList.remove('active');
+                }
+            });
+        }
+        updateDeviceUI();
+
+        function switchDevice(id) {
+            currentDeviceId = id;
+            updateDeviceUI();
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('device', id);
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        // Detección de host para WebSocket
+        function getWsUrl() {
+            let host = window.location.hostname || 'localhost';
+            // Si corre en Vercel u otro dominio externo
+            if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
+                let savedIp = localStorage.getItem('local_pc_ip');
+                if (!savedIp) {
+                    savedIp = prompt("Ingresa la IP local de la PC con los lectores (ej: 192.168.1.50):", "192.168.1.");
+                    if (savedIp) localStorage.setItem('local_pc_ip', savedIp);
+                }
+                if (savedIp) return `ws://${savedIp}:8080`;
+            }
+            return `ws://${host}:8080`;
+        }
+
+        let socket = null;
+        const pill = document.getElementById('status-pill');
+        const statusText = document.getElementById('bridge-status-text');
+
+        function connectWs() {
+            try {
+                const wsUrl = getWsUrl();
+                socket = new WebSocket(wsUrl);
+
+                socket.onopen = () => {
+                    pill.classList.add('online');
+                    pill.title = "Bridge Conectado";
+                    statusText.innerText = `Conectado al Bridge (${socket.url}) para [Dispositivo ${currentDeviceId}]`;
+                };
+
+                socket.onclose = () => {
+                    pill.classList.remove('online');
+                    pill.title = "Desconectado";
+                    statusText.innerText = 'Desconectado del Bridge. Reintentando...';
+                    setTimeout(connectWs, 3000);
+                };
+
+                socket.onerror = () => {
+                    pill.classList.remove('online');
+                };
+            } catch (e) {
+                console.error(e);
+                setTimeout(connectWs, 3000);
+            }
+        }
+        connectWs();
+
+        function sendKey(key) {
+            console.log(`[Dispositivo ${currentDeviceId}] Tecla:`, key);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'REMOTE_KEY',
+                    deviceId: currentDeviceId,
+                    key: key
+                }));
+
+                if (window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate(40);
+                }
+            } else {
+                console.warn("Socket no está conectado");
+            }
+        }
+    </script>
+</body>
+
+</html>

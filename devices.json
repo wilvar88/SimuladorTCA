@@ -1,0 +1,22 @@
+{
+  "devices": {
+    "0068": {
+      "displayId": "0068",
+      "realSerial": "RR234-016879",
+      "readerName": "ACS ACR1251 1S CL Reader PICC 0",
+      "label": "Terminal 0068"
+    },
+    "0069": {
+      "displayId": "0069",
+      "realSerial": "RR234-016991",
+      "readerName": "ACS ACR1251 1S CL Reader PICC 1",
+      "label": "Terminal 0069"
+    },
+    "0071": {
+      "displayId": "0071",
+      "realSerial": "RR234-017108",
+      "readerName": "ACS ACR1251 1S CL Reader PICC 2",
+      "label": "Terminal 0071"
+    }
+  }
+}
