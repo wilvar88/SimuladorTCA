@@ -10,32 +10,46 @@ function parseCSVDatabase(csvText) {
         const profiles = {};
         for (let i = 1; i < rows.length; i++) {
             const values = rows[i];
-            if (values.length < 9) continue; // Mínimo hasta Saldo
+            if (values.length < 6) continue; // Mínimo hasta ATR
+
+            const rawName = values[0] || "";
+            const rawCedula = (values[1] || "").trim();
+            const rawProfile = (values[2] || "").trim();
+            const rawOpId = (values[3] || "").trim();
+            const rawSerial = (values[4] || "").trim();
+            const rawAtr = (values[5] || "").trim();
+
+            const cleanAtr = rawAtr.replace(/[:\s-]/g, '').toLowerCase();
+            const cleanSerial = rawSerial.replace(/[:\s-]/g, '').toLowerCase();
+            const cleanOpId = rawOpId.replace(/[:\s-]/g, '').toLowerCase();
 
             const profile = {
-                name: values[0],
-                cedula: values[1],
-                profile: (values[2] || "").trim(),
-                operatorId: (values[3] || "").trim(),
-                serial: (values[4] || "").replace(/\s/g, '').toLowerCase().trim(),
-                atr: (values[5] || "").toLowerCase().trim(),
+                name: rawName,
+                cedula: rawCedula,
+                profile: rawProfile,
+                operatorId: rawOpId, // Mantener formato para visualización ("0000 1020")
+                cleanOperatorId: cleanOpId,
+                serial: cleanSerial,
+                rawSerial: rawSerial,
+                atr: cleanAtr,
+                rawAtr: rawAtr,
                 subsidyBalance: parseInt(values[6]) || 0,
                 reimbursementBalance: parseInt(values[7]) || 0,
                 balance: parseInt(values[8]) || 0,
                 status: values[9] || "Activa"
             };
 
-            // Mapeo por múltiples llaves para asegurar detección
-            if (profile.atr) profiles[profile.atr] = profile;
-            if (profile.serial) profiles[profile.serial] = profile;
-            if (profile.cedula) profiles[profile.cedula.toLowerCase().trim()] = profile;
-            if (profile.operatorId) profiles[profile.operatorId.toLowerCase().trim()] = profile;
+            // Mapeo exhaustivo para garantizar detección por cualquier campo
+            if (cleanAtr) profiles[cleanAtr] = profile;
+            if (cleanSerial) profiles[cleanSerial] = profile;
+            if (profile.cedula) profiles[profile.cedula.toLowerCase()] = profile;
+            if (rawOpId) profiles[rawOpId.toLowerCase()] = profile;
+            if (cleanOpId) profiles[cleanOpId] = profile;
         }
         cardProfiles = profiles;
-        console.log("🔍 [DEBUG] Llaves en cardProfiles:", Object.keys(cardProfiles));
-        console.table(Object.values(cardProfiles).slice(0, 5));
+        console.log("🔍 [DEBUG] Claves indexadas en cardProfiles:", Object.keys(cardProfiles));
         const count = Object.keys(cardProfiles).length;
-        console.log("✅ DB Sincronizada:", count, "perfiles detectados.");
+        console.log("✅ DB Sincronizada:", count, "claves indexadas.");
         const dbStatus = document.getElementById('db-status');
         if (dbStatus) {
             dbStatus.innerText = `DB: OK (${count})`;
@@ -158,6 +172,38 @@ function getWsUrl() {
     return `ws://${host}:8080`;
 }
 
+// SISTEMA DE NOTIFICACIONES TOAST (Alerta de lector cruzado y estados)
+function showToast(message, type = 'info') {
+    let container = document.getElementById('tca-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'tca-toast-container';
+        container.style.cssText = "position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 999999; display: flex; flex-direction: column; gap: 8px; pointer-events: none;";
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    const bgColors = {
+        info: '#0284c7',
+        warning: '#d97706',
+        success: '#16a34a',
+        danger: '#dc2626'
+    };
+    const bg = bgColors[type] || '#222';
+    toast.style.cssText = `background: ${bg}; color: white; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 1.05rem; box-shadow: 0 6px 20px rgba(0,0,0,0.5); pointer-events: auto; text-align: center; border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s;`;
+    toast.innerHTML = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 400);
+    }, 4500);
+}
+
+function showDeviceMismatchNotification(incomingDevId, readerName) {
+    const cleanReader = (readerName || '').replace('ACS ACR1251 1S CL Reader ', '');
+    showToast(`⚠️ Tarjeta leída en <strong>Lector ${cleanReader} (Terminal ${incomingDevId})</strong><br><span style="font-size:0.85rem;opacity:0.9;font-weight:400;">Esta ventana está configurada para <strong>Terminal ${currentDeviceId}</strong></span>`, 'warning');
+}
+
 // BRIDGE CONNECTION (HARDWARE)
 function connectBridge() {
     const wsUrl = getWsUrl();
@@ -185,9 +231,12 @@ function connectBridge() {
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'CARD_DETECTED') {
-                // Filtrar por ID de dispositivo: solo atender tarjetas de este lector
-                if (data.deviceId && data.deviceId !== currentDeviceId) return;
-                onCardDetected(data.uid, data.atr, data.staticId);
+                // Notificar si la tarjeta fue leída en otro lector para que el usuario no se confunda
+                if (data.deviceId && data.deviceId !== currentDeviceId) {
+                    showDeviceMismatchNotification(data.deviceId, data.readerName);
+                    return;
+                }
+                onCardDetected(data.uid, data.atr, data.staticId, data.tagType);
             } else if (data.type === 'CARD_REMOVED') {
                 if (data.deviceId && data.deviceId !== currentDeviceId) return;
                 onCardRemoved();
@@ -475,88 +524,106 @@ function formatMoney(val) {
     return parseInt(val).toLocaleString('es-CO');
 }
 
-function onCardDetected(uid, atr, staticId) {
-    console.log("💳 Card seen:", { uid, atr, staticId });
+function onCardDetected(uid, atr, staticId, tagType) {
+    console.log("💳 Card seen:", { uid, atr, staticId, tagType });
 
-    const cleanAtr = (atr || "").toLowerCase();
-    const cleanStaticId = (staticId || "").toLowerCase();
-    const cleanUid = (uid || "").toLowerCase();
-    const cleanUidNoSpaces = (uid || "").replace(/\s/g, '').toLowerCase();
+    const cleanAtr = (atr || "").replace(/[:\s-]/g, '').toLowerCase();
+    const cleanStaticId = (staticId || "").replace(/[:\s-]/g, '').toLowerCase();
+    const cleanUid = (uid || "").replace(/[:\s-]/g, '').toLowerCase();
 
-    // Mapping logic
-    let profile = cardProfiles[cleanStaticId] || cardProfiles[cleanAtr] || cardProfiles[cleanUid] || cardProfiles[cleanUidNoSpaces];
-    let matchType = profile ? "Exact Match" : "None";
+    // Buscar coincidencia en orden de especificidad: UID > StaticId > ATR
+    let profile = null;
+    let matchType = "Ninguna";
 
-    // Try decimal conversion for UID (many systems use decimal ID in DB but hex UID in hardware)
-    if (!profile && cleanStaticId) {
-        const decId = parseInt(cleanStaticId, 16).toString();
-        if (cardProfiles[decId]) {
-            console.log("✅ Match found via Decimal ID:", decId);
-            profile = cardProfiles[decId];
-            matchType = "Decimal ID";
-        }
+    if (cleanUid && cardProfiles[cleanUid]) {
+        profile = cardProfiles[cleanUid];
+        matchType = "UID (" + cleanUid + ")";
+    } else if (cleanStaticId && cardProfiles[cleanStaticId]) {
+        profile = cardProfiles[cleanStaticId];
+        matchType = "StaticId (" + cleanStaticId + ")";
+    } else if (cleanAtr && cardProfiles[cleanAtr]) {
+        profile = cardProfiles[cleanAtr];
+        matchType = "ATR (" + cleanAtr + ")";
     }
-    if (!profile && cleanUidNoSpaces) {
-        const decId = parseInt(cleanUidNoSpaces, 16).toString();
-        if (cardProfiles[decId]) {
-            console.log("✅ Match found via Decimal UID:", decId);
-            profile = cardProfiles[decId];
-            matchType = "Decimal UID";
-        }
+
+    // Probar conversión decimal (común en lectores que convierten UID a decimal)
+    if (!profile && cleanUid) {
+        try {
+            const decId = parseInt(cleanUid, 16).toString();
+            if (cardProfiles[decId]) {
+                profile = cardProfiles[decId];
+                matchType = "Decimal UID (" + decId + ")";
+            }
+        } catch (e) { }
+    }
+    if (!profile && cleanStaticId) {
+        try {
+            const decId = parseInt(cleanStaticId, 16).toString();
+            if (cardProfiles[decId]) {
+                profile = cardProfiles[decId];
+                matchType = "Decimal ID (" + decId + ")";
+            }
+        } catch (e) { }
     }
 
     if (!profile) {
-        console.warn("⚠️ Unknown card. UIDs tried:", { staticId: cleanStaticId, uidNoSpaces: cleanUidNoSpaces, atr: cleanAtr });
-        console.log("🔍 Disponibles en DB:", Object.keys(cardProfiles));
-        profile = { name: 'Nuevo', profile: 'Desactivada', balance: 0, serial: uid, operatorId: '999999', subsidyBalance: 0, status: 'Inactiva' };
-        const key = (uid || "").replace(/\s/g, '').toLowerCase();
+        console.warn("⚠️ Tarjeta no registrada en base de datos. Claves probadas:", { cleanUid, cleanStaticId, cleanAtr });
+        console.log("🔍 Claves disponibles en DB:", Object.keys(cardProfiles));
+        profile = {
+            name: 'Tarjeta No Registrada',
+            cedula: '0',
+            profile: 'Desactivada',
+            balance: 0,
+            serial: cleanUid || cleanAtr,
+            operatorId: '999999',
+            subsidyBalance: 0,
+            reimbursementBalance: 0,
+            status: 'Inactiva'
+        };
+        const key = cleanUid || cleanAtr;
         if (key) cardProfiles[key] = profile;
+        showToast(`⚠️ Tarjeta no registrada en DB (UID: ${cleanUid || cleanAtr})`, 'warning');
     } else {
-        console.log(`✅ [Discovery] Card identified via ${matchType}. Profile: ${profile.profile}, Name: ${profile.name}`);
+        console.log(`✅ [Coincidencia] Tarjeta identificada vía ${matchType}. Perfil: ${profile.profile}, Nombre: ${profile.name}`);
+        showToast(`💳 Tarjeta: <strong>${profile.name}</strong> (${profile.profile})`, 'success');
     }
 
     // IMPORTANTE: Asignar la tarjeta actual para que las operaciones (recarga) funcionen
     currentCard = profile;
 
     // Mostrar perfil y saldo en la pantalla principal TCA
-    document.getElementById('display-profile').innerText = profile.profile.toUpperCase();
-    document.getElementById('display-balance').innerText = "$ " + formatMoney(profile.balance);
+    const profEl = document.getElementById('display-profile');
+    const balEl = document.getElementById('display-balance');
+    if (profEl) profEl.innerText = profile.profile.toUpperCase();
+    if (balEl) balEl.innerText = "$ " + formatMoney(profile.balance);
 
-    // Actualizar PIU: Solo muestra Saldo Inicial al detectar
+    // Actualizar PIU: Saldo Inicial al detectar
     updatePIU('CARD_DETECTED', { balance: profile.balance });
 
-    // Si la tarjeta es de operador y estamos en bienvenida, ir a login
-    if (!sessionActive && profile.profile.toLowerCase() === 'operador' && (currentView === 'welcome' || currentView === 'idle')) {
-        console.log("🚀 Operator card detected. Initializing session flow for ID:", profile.operatorId);
-        showView('login-op');
-        loginStep = 1;
-        loginOpId = profile.operatorId;
-        updateLoginDisplay();
-        return;
-    }
-
-    if (profile.status === 'Inactiva' && currentView !== 'sale-waiting') return;
-
-    if (currentView === 'cancel-waiting') {
-        const isSameCard = lastRechargeCard && (lastRechargeCard.serial === profile.serial);
-        const canRevert = profile.balance >= lastRechargeAmount;
-        const validStart = !lastRechargeWasNegative;
-        if (isSameCard && canRevert && validStart) {
-            document.getElementById('cancel-amount-display').innerText = "$ " + formatMoney(lastRechargeAmount);
-            showView('cancel-confirm');
+    // FLUJO DE OPERADOR (Inicio de Sesión / Iniciar Trabajo)
+    if (profile.profile.toLowerCase() === 'operador') {
+        console.log("🚀 Tarjeta de Operador detectada para ID:", profile.operatorId);
+        // Si no hay sesión activa y estamos en bienvenida o reposo -> Abrir pantalla de login
+        if (!sessionActive && (currentView === 'welcome' || currentView === 'idle')) {
+            showView('login-op');
+            loginStep = 1;
+            loginOpId = profile.operatorId;
+            loginPass = "";
+            updateLoginDisplay();
+            return;
         }
-        return;
+        // Si ya estamos en la pantalla de login (screen-login-op) -> Asignar ID Operador
+        if (currentView === 'login-op') {
+            loginStep = 1;
+            loginOpId = profile.operatorId;
+            updateLoginDisplay();
+            return;
+        }
     }
 
-    const isAdminView = currentView === 'login-op' || currentView === 'gratuitous-login';
-    if (isAdminView && profile.profile.toLowerCase() !== 'operador') return;
-
-    // Blocked operator cards on idle/welcome (redundant now with shortcut above but kept for logic safety)
-    if (profile.profile.toLowerCase() === 'operador' && (currentView === 'idle' || currentView === 'welcome')) return;
-
-    if (currentView === 'login-op' && !loginOpId) {
-        loginOpId = profile.operatorId;
-        updateLoginDisplay();
+    // Si estamos en pantalla de login de operador pero la tarjeta NO es de operador
+    if (currentView === 'login-op') {
+        showToast(`⚠️ Esta tarjeta tiene perfil '${profile.profile}'. Se requiere tarjeta de Operador.`, 'warning');
         return;
     }
 

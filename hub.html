@@ -364,6 +364,172 @@
             color: #ffd54f;
         }
 
+        /* NFC INSPECTOR */
+        .inspector-card {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95), rgba(20, 22, 28, 0.95));
+            border: 2px solid var(--tm-orange);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(255, 102, 0, 0.15);
+            margin-bottom: 24px;
+        }
+
+        .inspector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--tm-border);
+            padding-bottom: 14px;
+        }
+
+        .inspector-header h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge-live-scan {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.25); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+
+        .inspector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .inspector-box {
+            background: #0d0e11;
+            border: 1px solid #282c37;
+            border-radius: 10px;
+            padding: 14px 18px;
+        }
+
+        .inspector-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--tm-muted);
+            font-weight: 800;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .inspector-value-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .inspector-val-mono {
+            font-family: 'Courier New', monospace;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #fff;
+            word-break: break-all;
+        }
+
+        .btn-copy-code {
+            background: #272a33;
+            color: var(--tm-orange);
+            border: 1px solid rgba(255, 102, 0, 0.4);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-copy-code:hover {
+            background: var(--tm-orange);
+            color: #000;
+        }
+
+        .inspector-meta-row {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--tm-border);
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .meta-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-pill strong {
+            color: var(--tm-muted);
+            font-weight: 600;
+        }
+
+        .meta-pill span {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .guide-box {
+            margin-top: 14px;
+            background: rgba(255, 102, 0, 0.08);
+            border: 1px dashed rgba(255, 102, 0, 0.35);
+            border-radius: 10px;
+            padding: 14px 18px;
+            font-size: 0.85rem;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
+
+        .guide-box ol {
+            margin: 6px 0 0 20px;
+            padding: 0;
+        }
+
+        .guide-box li {
+            margin-bottom: 4px;
+        }
+
         /* MODAL */
         .modal {
             position: fixed;
@@ -574,6 +740,70 @@
             </div>
         </section>
 
+        <!-- INSPECTOR DE ETIQUETAS NFC Y TARJETAS TULLAVE -->
+        <section class="inspector-card">
+            <div class="inspector-header">
+                <h2><i class="fas fa-qrcode" style="color: var(--tm-orange);"></i> Inspector de Etiquetas NFC y Tarjetas Tullave</h2>
+                <div class="badge-live-scan" id="inspector-badge">
+                    <span class="pulse-dot"></span>
+                    <span id="inspector-status-text">Listo: Acerca cualquier tarjeta o etiqueta</span>
+                </div>
+            </div>
+
+            <div class="inspector-grid">
+                <div class="inspector-box">
+                    <span class="inspector-label">UID Único del Chip (Identificador de Fábrica)</span>
+                    <div class="inspector-value-row">
+                        <span id="inspect-uid" class="inspector-val-mono">-- -- -- -- -- -- --</span>
+                        <button class="btn-copy-code" id="btn-copy-uid" onclick="copyInspectorCode('uid')">
+                            <i class="fas fa-copy"></i> Copiar UID
+                        </button>
+                    </div>
+                </div>
+
+                <div class="inspector-box">
+                    <span class="inspector-label">ATR (Descriptor de Protocolo PC/SC)</span>
+                    <div class="inspector-value-row">
+                        <span id="inspect-atr" class="inspector-val-mono" style="font-size: 0.95rem;">-- -- -- -- -- -- -- -- -- --</span>
+                        <button class="btn-copy-code" id="btn-copy-atr" onclick="copyInspectorCode('atr')">
+                            <i class="fas fa-copy"></i> Copiar ATR
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inspector-meta-row">
+                <div class="meta-pill">
+                    <strong>Tipo:</strong>
+                    <span id="inspect-type">Esperando lectura...</span>
+                </div>
+                <div class="meta-pill">
+                    <strong>Lector Físico:</strong>
+                    <span id="inspect-reader">---</span>
+                </div>
+                <div class="meta-pill">
+                    <strong>Terminal Asignada:</strong>
+                    <span id="inspect-device" style="color: var(--tm-orange);">---</span>
+                </div>
+                <div class="meta-pill">
+                    <strong>Estado en Google Sheets:</strong>
+                    <span id="inspect-db-match" style="color: #60a5fa;">---</span>
+                </div>
+            </div>
+
+            <div class="guide-box">
+                <div style="font-weight: 800; color: #fff; margin-bottom: 6px;">
+                    <i class="fas fa-lightbulb" style="color: var(--tm-orange);"></i> ¿Cómo usar tus etiquetas NFC circulares como tarjetas Tullave únicas?
+                </div>
+                <ol>
+                    <li>Acerca la etiqueta adhesiva a cualquiera de los 3 lectores ACR1251. El lector emitirá un <strong>beep</strong> de confirmación.</li>
+                    <li>Haz clic en el botón <strong>"Copiar UID"</strong> que aparece arriba (ej. <code>04a1b2c3d4e5f6</code>).</li>
+                    <li>Abre tu hoja de Google Sheets y en la columna <strong>ATR</strong> o en la columna <strong>Serial</strong> de una fila nueva, pega este <strong>UID</strong>.</li>
+                    <li>¡Listo! El simulador la reconocerá inmediatamente con su nombre, perfil (Operador, Adulto, Sisben o Discapacidad) y saldo individual.</li>
+                </ol>
+            </div>
+        </section>
+
         <!-- LIVE EVENT ACTIVITY -->
         <section class="activity-card">
             <div class="activity-header">
@@ -631,6 +861,85 @@
         const hwLabel = document.getElementById('hw-status-label');
         const dbDot = document.getElementById('db-dot');
         const dbLabel = document.getElementById('db-status-label');
+        let hubDbProfiles = {};
+        let lastScannedUid = "";
+        let lastScannedAtr = "";
+
+        function parseHubDB(csvText) {
+            try {
+                const rows = csvText.split(/\r?\n/).filter(r => r.trim()).map(r => r.split(',').map(c => c.trim()));
+                const map = {};
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (row.length < 4) continue;
+                    const p = {
+                        name: row[0],
+                        cedula: row[1],
+                        profile: row[2],
+                        operatorId: row[3],
+                        serial: (row[4] || '').replace(/[:\s-]/g, '').toLowerCase(),
+                        atr: (row[5] || '').replace(/[:\s-]/g, '').toLowerCase()
+                    };
+                    if (p.atr) map[p.atr] = p;
+                    if (p.serial) map[p.serial] = p;
+                    if (p.operatorId) map[p.operatorId.replace(/\s/g, '').toLowerCase()] = p;
+                }
+                hubDbProfiles = map;
+            } catch (e) {}
+        }
+
+        function handleInspectorScan(data) {
+            const uidEl = document.getElementById('inspect-uid');
+            const atrEl = document.getElementById('inspect-atr');
+            const typeEl = document.getElementById('inspect-type');
+            const readerEl = document.getElementById('inspect-reader');
+            const devEl = document.getElementById('inspect-device');
+            const matchEl = document.getElementById('inspect-db-match');
+            const statusText = document.getElementById('inspector-status-text');
+
+            const cleanUid = (data.uid || '').toLowerCase();
+            const cleanAtr = (data.atr || '').toLowerCase();
+            lastScannedUid = cleanUid;
+            lastScannedAtr = cleanAtr;
+
+            if (uidEl) uidEl.innerText = cleanUid || '(No detectable directo)';
+            if (atrEl) atrEl.innerText = cleanAtr || '(N/A)';
+            if (typeEl) typeEl.innerText = data.tagType || 'Tarjeta/Tag NFC';
+            if (readerEl) readerEl.innerText = (data.readerName || '').replace('ACS ACR1251 1S CL Reader ', '');
+            if (devEl) devEl.innerText = data.deviceId ? `Terminal ${data.deviceId}` : 'Sin Asignar';
+
+            if (statusText) statusText.innerText = `¡Tarjeta Detectada en Terminal ${data.deviceId || ''}!`;
+
+            // Buscar coincidencia en base de datos
+            const match = hubDbProfiles[cleanUid] || hubDbProfiles[cleanAtr];
+            if (match) {
+                if (matchEl) matchEl.innerHTML = `<span style="color:#4ade80;">✅ Registrada: ${match.name} (${match.profile})</span>`;
+            } else {
+                if (matchEl) matchEl.innerHTML = `<span style="color:#fbbf24;">⚠️ No registrada en DB (Copia el UID para agregarla a Google Sheets)</span>`;
+            }
+        }
+
+        function copyInspectorCode(type) {
+            const text = type === 'uid' ? lastScannedUid : lastScannedAtr;
+            if (!text) {
+                alert("Primero acerca una tarjeta o etiqueta NFC al lector.");
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(`btn-copy-${type}`);
+                const orig = btn.innerHTML;
+                btn.innerHTML = `<i class="fas fa-check"></i> ¡Copiado!`;
+                btn.style.background = "#22c55e";
+                btn.style.color = "#000";
+                setTimeout(() => {
+                    btn.innerHTML = orig;
+                    btn.style.background = "";
+                    btn.style.color = "";
+                }, 2000);
+            }).catch(() => {
+                prompt("Copia el código manualmente:", text);
+            });
+        }
 
         function connectWs() {
             try {
@@ -656,14 +965,16 @@
                         const data = JSON.parse(event.data);
 
                         if (data.type === 'CARD_DETECTED') {
-                            logEvent(`💳 Tarjeta detectada en <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong> (Lector: ${data.readerName}) &bull; UID: ${data.uid}`, 'card');
+                            handleInspectorScan(data);
+                            logEvent(`💳 ${data.tagType || 'Tarjeta'} en <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong> (${data.readerName}) &bull; UID: ${data.uid || '(N/A)'} &bull; ATR: ${data.atr}`, 'card');
                         } else if (data.type === 'CARD_REMOVED') {
                             logEvent(`📤 Tarjeta retirada de <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong>`, '');
                         } else if (data.type === 'DEVICES_INFO') {
                             updateDevicesInfo(data);
                         } else if (data.type === 'DB_SYNC') {
+                            parseHubDB(data.data || '');
                             dbDot.classList.add('active');
-                            const lines = (data.data || '').split(/\r?\n/).length - 1;
+                            const lines = (data.data || '').split(/\r?\n/).filter(l => l.trim()).length - 1;
                             dbLabel.innerText = `DB: OK (${lines} registros)`;
                             logEvent(`Base de Datos Google Sheets sincronizada (${lines} perfiles).`, 'card');
                         } else if (data.type === 'DB_SYNC_START') {

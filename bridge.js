@@ -217,47 +217,49 @@ function broadcast(data) {
 // --- CONFIGURACIÓN Y SINCRONIZACIÓN DE BASE DE DATOS (Google Sheets) ---
 const DB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8ihPAX5tJ7UJ-jbKCp-bCvmnVBWrRrbeq_aaWVCI28nZt_xaouhaRrx85MSl_VBMH1cGtMVF9CNeY/pub?output=csv";
 let cachedDB = "";
+const DB_BACKUP_FILE = path.join(__dirname, 'db_local_backup.csv');
 
-function httpsFetch(url, callback) {
-    https.get(url, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            return httpsFetch(res.headers.location, callback);
-        }
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-            callback(null, data, res.statusCode);
-        });
-    }).on('error', (e) => {
-        callback(e);
-    });
+// Cargar respaldo local si existe
+if (fs.existsSync(DB_BACKUP_FILE)) {
+    try {
+        cachedDB = fs.readFileSync(DB_BACKUP_FILE, 'utf8');
+        const count = cachedDB.split(/\r?\n/).filter(l => l.trim()).length - 1;
+        console.log(`💾 Base de datos local de respaldo cargada (${count} registros).`);
+    } catch (e) { }
+} else if (fs.existsSync(path.join(__dirname, 'db_check.csv'))) {
+    try {
+        cachedDB = fs.readFileSync(path.join(__dirname, 'db_check.csv'), 'utf8');
+        console.log(`💾 Base de datos inicial cargada desde db_check.csv`);
+    } catch (e) { }
 }
 
 async function syncDatabase() {
     try {
-        console.log("📥 Sincronizando Base de Datos desde la nube...");
+        console.log("📥 Sincronizando Base de Datos desde Google Sheets...");
         broadcast({ type: 'DB_SYNC_START' });
 
-        httpsFetch(DB_URL, (err, data, status) => {
-            if (err) {
-                console.error("❌ Error sincronizando DB:", err.message);
-                broadcast({ type: 'DB_SYNC_ERROR', error: err.message });
-                setTimeout(syncDatabase, 10000);
+        const response = await fetch(DB_URL, { redirect: 'follow' });
+        if (response.ok) {
+            const data = await response.text();
+            if (data && data.length > 20) {
+                cachedDB = data;
+                fs.writeFileSync(DB_BACKUP_FILE, data, 'utf8');
+                const lines = data.split(/\r?\n/).filter(l => l.trim()).length - 1;
+                console.log(`✅ Base de Datos sincronizada desde Google Sheets (${lines} registros, ${data.length} bytes).`);
+                broadcast({ type: 'DB_SYNC', data: cachedDB });
                 return;
             }
-            if (status === 200) {
-                cachedDB = data;
-                const lines = data.split(/\r?\n/).length - 1;
-                console.log(`✅ Base de Datos sincronizada (${lines} registros, ${data.length} bytes).`);
-                broadcast({ type: 'DB_SYNC', data: cachedDB });
-            } else {
-                console.error("❌ Error sincronizando DB: Status " + status);
-                broadcast({ type: 'DB_SYNC_ERROR', status: status });
-                setTimeout(syncDatabase, 30000);
-            }
-        });
+        }
+        console.warn(`⚠️ Respuesta inesperada de Google Sheets: Status ${response.status}`);
+        broadcast({ type: 'DB_SYNC_ERROR', status: response.status });
+        if (cachedDB) broadcast({ type: 'DB_SYNC', data: cachedDB });
     } catch (e) {
-        console.error("❌ Error crítico en syncDatabase:", e);
+        console.error("❌ Error sincronizando DB:", e.message);
+        broadcast({ type: 'DB_SYNC_ERROR', error: e.message });
+        if (cachedDB) {
+            console.log("ℹ️ Usando copia en caché de la base de datos.");
+            broadcast({ type: 'DB_SYNC', data: cachedDB });
+        }
     }
 }
 
@@ -395,37 +397,53 @@ nfc.on('reader', (reader) => {
             } catch (e) { uid = null; }
         }
 
-        const atr = card.atr ? card.atr.toString('hex') : "";
+        const rawAtr = card.atr ? card.atr.toString('hex') : "";
 
         let manualUid = null;
         try {
             manualUid = await tryReadStaticId();
         } catch (err) { }
 
-        const finalId = manualUid || uid || "";
-        const finalAtr = atr || "";
+        const finalUid = (manualUid || uid || "").toLowerCase().trim();
+        const finalAtr = rawAtr.toLowerCase().trim();
 
-        if (!finalId && !finalAtr) {
+        if (!finalUid && !finalAtr) {
             console.log(`⚠️ No se pudo obtener datos de la tarjeta en ${name}`);
             return;
+        }
+
+        // Clasificación inteligente del tipo de tarjeta/etiqueta
+        let tagType = "Desconocido";
+        if (finalUid && finalUid.length === 14 && finalUid.startsWith('04')) {
+            tagType = "Etiqueta NFC (NTAG / Ultralight - 7 Bytes UID)";
+        } else if (finalUid && finalUid.length === 8) {
+            tagType = "Tarjeta Mifare Classic (4 Bytes UID)";
+        } else if (finalAtr.startsWith('3b84') || finalAtr.startsWith('3b88')) {
+            tagType = "Tarjeta Tullave (Calypso / Transporte)";
+        } else if (finalAtr.includes('000306030003')) {
+            tagType = "Etiqueta NFC Estándar ISO 14443-A";
         }
 
         const devInfo = getDeviceInfoByReaderName(name);
         const deviceId = devInfo ? devInfo.displayId : null;
         const realSerial = devInfo ? devInfo.realSerial : null;
 
-        console.log(`💳 [HW] Tarjeta en Lector '${name}' -> Asignado a Dispositivo: [${deviceId || 'DESCONOCIDO'}] (Serial Real: ${realSerial || 'N/A'})`);
-        console.log(`   UID: '${finalId}', ATR: '${finalAtr}'`);
+        console.log(`💳 [HW] ${tagType} en Lector '${name}' -> Terminal: [${deviceId || 'DESCONOCIDO'}]`);
+        console.log(`   UID Único: '${finalUid || '(N/A)'}' | ATR: '${finalAtr}'`);
 
-        // Emitir con el ID del dispositivo correspondiente
+        // Beep de confirmación física (50ms) en el lector donde se acercó
+        triggerBuzzer(name, 5);
+
+        // Emitir con el ID del dispositivo correspondiente y datos para el Inspector
         broadcast({
             type: 'CARD_DETECTED',
             deviceId: deviceId, // "0068", "0069", "0071"
             readerName: name,
             realSerial: realSerial,
-            uid: finalId,
+            uid: finalUid,
             atr: finalAtr,
-            staticId: finalId
+            staticId: finalUid || finalAtr,
+            tagType: tagType
         });
     });
 
