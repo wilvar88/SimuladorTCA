@@ -350,10 +350,22 @@ wss.on('connection', (ws) => {
                 return;
             }
 
-            // Reenviar todos los demás mensajes (ej: REMOTE_KEY, PIU_UPDATE) a todos los clientes
+            // Prioridad para REMOTE_KEY (pulsaciones de teclado remoto con 0ms de retardo)
+            if (data.type === 'REMOTE_KEY') {
+                const rawMsg = JSON.stringify(data);
+                clients.forEach(client => {
+                    if (client !== ws && client.readyState === WebSocket.OPEN) {
+                        client.send(rawMsg);
+                    }
+                });
+                return;
+            }
+
+            // Reenviar todos los demás mensajes (ej: PIU_UPDATE) a todos los clientes
+            const genericMsg = JSON.stringify(data);
             clients.forEach(client => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(data));
+                    client.send(genericMsg);
                 }
             });
         } catch (e) {

@@ -1,52 +1,74 @@
 // CONFIGURACIÓN DE BASE DE DATOS (Recibida vía WebSocket)
 let cardProfiles = {};
+let rawDbRows = [];
+
+function buildProfilesFromRows(rows) {
+    const profiles = {};
+    for (let i = 1; i < rows.length; i++) {
+        const values = rows[i];
+        if (values.length < 6) continue; // Mínimo hasta ATR
+
+        const rawName = values[0] || "";
+        const rawCedula = (values[1] || "").trim();
+        const rawProfile = (values[2] || "").trim();
+        const rawOpId = (values[3] || "").trim();
+        const rawSerial = (values[4] || "").trim();
+        const rawAtr = (values[5] || "").trim();
+
+        const cleanAtr = rawAtr.replace(/[:\s-]/g, '').toLowerCase();
+        const cleanSerial = rawSerial.replace(/[:\s-]/g, '').toLowerCase();
+        const cleanOpId = rawOpId.replace(/[:\s-]/g, '').toLowerCase();
+
+        // Estado según columna J ("ESTADO")
+        let rawStatus = (values[9] || "").trim();
+        if (!rawStatus) {
+            rawStatus = rawProfile.toLowerCase() === 'operador' ? 'Activa' : 'Inactiva';
+        }
+
+        const profile = {
+            name: rawName,
+            cedula: rawCedula,
+            profile: rawProfile,
+            operatorId: rawOpId, // Mantener formato para visualización ("0000 1020")
+            cleanOperatorId: cleanOpId,
+            serial: cleanSerial,
+            rawSerial: rawSerial,
+            atr: cleanAtr,
+            rawAtr: rawAtr,
+            subsidyBalance: parseInt(values[6]) || 0,
+            reimbursementBalance: parseInt(values[7]) || 0,
+            balance: parseInt(values[8]) || 0,
+            initialBalance: parseInt(values[8]) || 0,
+            status: rawStatus,
+            initialStatus: rawStatus
+        };
+
+        // Mapeo exhaustivo para garantizar detección por cualquier campo
+        if (cleanAtr) profiles[cleanAtr] = profile;
+        if (cleanSerial) profiles[cleanSerial] = profile;
+        if (profile.cedula) profiles[profile.cedula.toLowerCase()] = profile;
+        if (rawOpId) profiles[rawOpId.toLowerCase()] = profile;
+        if (cleanOpId) profiles[cleanOpId] = profile;
+    }
+    cardProfiles = profiles;
+    return profiles;
+}
+
+function restoreDatabaseInitialState() {
+    if (rawDbRows && rawDbRows.length > 0) {
+        console.log("🔄 Restaurando estados y saldos iniciales de tarjetas según Google Sheets...");
+        buildProfilesFromRows(rawDbRows);
+    }
+}
 
 function parseCSVDatabase(csvText) {
     try {
         console.log("📄 Procesando datos CSV recibidos...");
         const rows = csvText.split(/\r?\n/).filter(row => row.trim() !== "").map(row => row.split(',').map(v => v.trim()));
         console.log(`📊 Filas detectadas: ${rows.length}`);
+        rawDbRows = rows;
+        buildProfilesFromRows(rows);
 
-        const profiles = {};
-        for (let i = 1; i < rows.length; i++) {
-            const values = rows[i];
-            if (values.length < 6) continue; // Mínimo hasta ATR
-
-            const rawName = values[0] || "";
-            const rawCedula = (values[1] || "").trim();
-            const rawProfile = (values[2] || "").trim();
-            const rawOpId = (values[3] || "").trim();
-            const rawSerial = (values[4] || "").trim();
-            const rawAtr = (values[5] || "").trim();
-
-            const cleanAtr = rawAtr.replace(/[:\s-]/g, '').toLowerCase();
-            const cleanSerial = rawSerial.replace(/[:\s-]/g, '').toLowerCase();
-            const cleanOpId = rawOpId.replace(/[:\s-]/g, '').toLowerCase();
-
-            const profile = {
-                name: rawName,
-                cedula: rawCedula,
-                profile: rawProfile,
-                operatorId: rawOpId, // Mantener formato para visualización ("0000 1020")
-                cleanOperatorId: cleanOpId,
-                serial: cleanSerial,
-                rawSerial: rawSerial,
-                atr: cleanAtr,
-                rawAtr: rawAtr,
-                subsidyBalance: parseInt(values[6]) || 0,
-                reimbursementBalance: parseInt(values[7]) || 0,
-                balance: parseInt(values[8]) || 0,
-                status: values[9] || "Activa"
-            };
-
-            // Mapeo exhaustivo para garantizar detección por cualquier campo
-            if (cleanAtr) profiles[cleanAtr] = profile;
-            if (cleanSerial) profiles[cleanSerial] = profile;
-            if (profile.cedula) profiles[profile.cedula.toLowerCase()] = profile;
-            if (rawOpId) profiles[rawOpId.toLowerCase()] = profile;
-            if (cleanOpId) profiles[cleanOpId] = profile;
-        }
-        cardProfiles = profiles;
         console.log("🔍 [DEBUG] Claves indexadas en cardProfiles:", Object.keys(cardProfiles));
         const count = Object.keys(cardProfiles).length;
         console.log("✅ DB Sincronizada:", count, "claves indexadas.");
@@ -99,6 +121,31 @@ let stats = {
     saldoLsamInicio: 9205350,
     saldoLsamCierre: 9205350
 };
+
+function resetSessionStats() {
+    stats = {
+        nRecargas: 0, vRecargas: 0,
+        nAnulacRecargas: 0, vAnulacRecargas: 0,
+        nDescargaTarjetas: 0, vDescargaTarjetas: 0,
+        nVentaTarjetas: 0, vVentaTarjetas: 0,
+        nVentaTarjGratis: 0,
+        nExcepcionRecargas: 0, vExcepcionRecargas: 0,
+        nFallidas: 0, vFallidas: 0,
+        nRecargaReembolsos: 0, vRecargaReembolsos: 0,
+        nAnulacReembolso: 0, vAnulacReembolso: 0,
+        nDevolucionBillete: 0, vDevolucionBillete: 0,
+        nSubsidioConvenio: 0, vSubsidioConvenio: 0,
+        nAnulacSubsidio: 0, vAnulacSubsidio: 0,
+        saldoLsamInicio: 9205350,
+        saldoLsamCierre: 9205350
+    };
+    lastRechargeAmount = 0;
+    lastRechargeCard = null;
+    lastRechargeWasNegative = false;
+    closingCashInput = "0";
+    currentInput = "0";
+    console.log("🧹 Estadísticas de sesión reiniciadas a 0.");
+}
 
 // IDENTIFICACIÓN MULTI-DISPOSITIVO
 const urlParams = new URLSearchParams(window.location.search);
@@ -345,6 +392,8 @@ function setFunction(func) {
         if (!sessionActive) {
             showView('login-op');
             loginStep = 1;
+            loginOpId = "";
+            loginPass = "";
             updateLoginDisplay();
         } else {
             startClosing();
@@ -353,20 +402,50 @@ function setFunction(func) {
     }
 
     if (func === 'CANCEL') {
+        // Cerrar recibo virtual si está abierto
+        const vr = document.getElementById('virtual-receipt');
+        if (vr && vr.classList.contains('show')) {
+            vr.classList.remove('show');
+            showView(sessionActive ? 'idle' : 'welcome');
+            return;
+        }
+
         if (loginStep > 0) {
             resetLogin();
             showView('welcome');
-        } else if (currentView === 'idle' || currentView === 'welcome') {
+            return;
+        }
+
+        if (currentView === 'cancel-waiting' || currentView === 'cancel-confirm') {
+            showView(sessionActive ? 'idle' : 'welcome');
+            return;
+        }
+
+        if (currentView === 'sale-waiting' || currentView === 'sale-confirm') {
+            showView(sessionActive ? 'idle' : 'welcome');
+            return;
+        }
+
+        if (sessionActive && (currentView === 'idle' || currentView === 'welcome')) {
             adminContext = 'cancel';
             showView('cancel-waiting');
-        } else {
-            // Volver a la ventana inicial (idle)
-            showView(sessionActive ? 'idle' : 'welcome');
+            return;
         }
+
+        // Volver a la ventana inicial (idle si hay sesión, welcome si no)
+        showView(sessionActive ? 'idle' : 'welcome');
         return;
     }
 
     if (func === 'OK') {
+        // Cerrar recibo virtual si está abierto
+        const vr = document.getElementById('virtual-receipt');
+        if (vr && vr.classList.contains('show')) {
+            vr.classList.remove('show');
+            showView(sessionActive ? 'idle' : 'welcome');
+            return;
+        }
+
         if (currentView === 'sale-confirm' && currentCard) {
             finalizarVenta();
         } else if (currentView === 'cancel-confirm' && currentCard) {
@@ -378,16 +457,25 @@ function setFunction(func) {
                 if (display) display.innerText = "$ 0";
                 showView('closing-cash');
             } else {
-                alert("Clave de Cierre Incorrecta");
+                showToast("⚠️ Clave de Cierre Incorrecta", "error");
                 loginPass = "";
                 const display = document.getElementById('closing-pass-display');
-                if (display) display.innerText = "********";
+                if (display) display.innerText = "";
             }
         } else if (currentView === 'closing-cash') {
-            const montoContado = parseInt(closingCashInput);
+            const montoContado = parseInt(closingCashInput) || 0;
             finishSession(montoContado);
         } else if (currentView === 'login-op') {
+            if (!loginOpId) {
+                showToast("⚠️ Primero debe colocar la tarjeta de Operador", "warning");
+                return;
+            }
+            if (loginPass.length === 0) {
+                showToast("⚠️ Ingrese la contraseña de Operador", "warning");
+                return;
+            }
             loginStep = 3;
+            loginBase = "0";
             showView('login-base');
             updateLoginDisplay();
         } else if (currentView === 'login-base') {
@@ -434,46 +522,57 @@ function updateAdminMenuSelection(func) {
 
 /**
  * Agrega un dígito a la entrada actual según la vista activa.
- * @param {string} digit - El número presionado (0-9).
+ * @param {string} digit - El número presionado (0-9 o 00).
  */
 function addDigit(digit) {
     // Si estamos en la pantalla de Recarga
     if (currentView === 'recharge') {
-        // Limitar a 9 dígitos para evitar desbordamiento visual
         if (currentInput.replace("$", "").replace(/\./g, "").length >= 9) return;
-        // Reemplazar el "0" inicial o concatenar
-        if (currentInput === "0") currentInput = digit;
-        else currentInput += digit;
-        updateInputDisplay(); // Actualiza la interfaz de recarga
+        if (digit === '00') {
+            if (currentInput !== "0") currentInput += "00";
+        } else {
+            if (currentInput === "0") currentInput = digit;
+            else currentInput += digit;
+        }
+        updateInputDisplay();
     }
-    // Si estamos en el inicio de sesión del operador
+    // Si estamos en el inicio de sesión del operador (contraseña)
     else if (currentView === 'login-op') {
-        // Limitar contraseña a 8 dígitos
-        if (loginPass.length < 8) loginPass += digit;
-        updateLoginDisplay(); // Actualiza los asteriscos en la pantalla de login
+        if (digit !== '00' && loginPass.length < 8) {
+            loginPass += digit;
+            updateLoginDisplay();
+        }
     }
     // Si estamos ingresando la base inicial de caja
     else if (currentView === 'login-base') {
         if (loginBase.replace("$", "").replace(/\./g, "").length >= 9) return;
-        if (loginBase === "0") loginBase = digit;
-        else loginBase += digit;
+        if (digit === '00') {
+            if (loginBase !== "0") loginBase += "00";
+        } else {
+            if (loginBase === "0") loginBase = digit;
+            else loginBase += digit;
+        }
         updateLoginDisplay();
     }
     // Si estamos en la pantalla de contraseña para el Cierre de Caja (F5)
     else if (currentView === 'closing-pass') {
-        if (loginPass.length < 8) {
-            loginPass += digit; // Agrega el dígito a la variable global
-            // CORRECCIÓN: Muestra solo los asteriscos de los dígitos ingresados, sin rellenar hasta 8
-            document.getElementById('closing-pass-display').innerText = "*".repeat(loginPass.length);
+        if (digit !== '00' && loginPass.length < 8) {
+            loginPass += digit;
+            const display = document.getElementById('closing-pass-display');
+            if (display) display.innerText = "*".repeat(loginPass.length);
         }
     }
     // Si estamos ingresando el efectivo real en el cierre
     else if (currentView === 'closing-cash') {
         if (closingCashInput.replace("$", "").replace(/\./g, "").length >= 9) return;
-        if (closingCashInput === "0") closingCashInput = digit;
-        else closingCashInput += digit;
-        // Formatea el número como moneda y lo muestra
-        document.getElementById('closing-cash-display').innerText = "$ " + formatMoney(closingCashInput);
+        if (digit === '00') {
+            if (closingCashInput !== "0") closingCashInput += "00";
+        } else {
+            if (closingCashInput === "0") closingCashInput = digit;
+            else closingCashInput += digit;
+        }
+        const display = document.getElementById('closing-cash-display');
+        if (display) display.innerText = "$ " + formatMoney(closingCashInput);
     }
 }
 
@@ -582,88 +681,125 @@ function onCardDetected(uid, atr, staticId, tagType) {
         };
         const key = cleanUid || cleanAtr;
         if (key) cardProfiles[key] = profile;
-        showToast(`⚠️ Tarjeta no registrada en DB (UID: ${cleanUid || cleanAtr})`, 'warning');
-    } else {
-        console.log(`✅ [Coincidencia] Tarjeta identificada vía ${matchType}. Perfil: ${profile.profile}, Nombre: ${profile.name}`);
-        showToast(`💳 Tarjeta: <strong>${profile.name}</strong> (${profile.profile})`, 'success');
     }
 
-    // IMPORTANTE: Asignar la tarjeta actual para que las operaciones (recarga) funcionen
-    currentCard = profile;
+    // PUNTO 2: En la pantalla inicial [F5] Inicio Trabajo NO se avanza con ninguna tarjeta.
+    // Solo avanza cuando el usuario oprime físicamente o remotamente la tecla F5.
+    if (!sessionActive && currentView === 'welcome') {
+        console.log("⏸️ Pantalla inicial [F5] Inicio Trabajo activa. Presione F5 para iniciar.");
+        return; // No se reconoce, no avanza, no carga nada
+    }
 
-    // Mostrar perfil y saldo en la pantalla principal TCA
-    const profEl = document.getElementById('display-profile');
-    const balEl = document.getElementById('display-balance');
-    if (profEl) profEl.innerText = profile.profile.toUpperCase();
-    if (balEl) balEl.innerText = "$ " + formatMoney(profile.balance);
-
-    // Actualizar PIU: Saldo Inicial al detectar
-    updatePIU('CARD_DETECTED', { balance: profile.balance });
-
-    // FLUJO DE OPERADOR (Inicio de Sesión / Iniciar Trabajo)
-    if (profile.profile.toLowerCase() === 'operador') {
-        console.log("🚀 Tarjeta de Operador detectada para ID:", profile.operatorId);
-        // Si no hay sesión activa y estamos en bienvenida o reposo -> Abrir pantalla de login
-        if (!sessionActive && (currentView === 'welcome' || currentView === 'idle')) {
-            showView('login-op');
-            loginStep = 1;
+    // PUNTO 2: En la pantalla de login [Iniciar Trabajo] SOLO se autoriza la tarjeta Operador.
+    // Si se coloca otra tarjeta con otro perfil, es como si no colocara nada.
+    if (currentView === 'login-op') {
+        if (profile && profile.profile && profile.profile.toLowerCase() === 'operador') {
+            console.log("✅ Tarjeta de Operador autorizada detectada:", profile.operatorId);
             loginOpId = profile.operatorId;
             loginPass = "";
+            loginStep = 2; // Listo para ingresar contraseña
             updateLoginDisplay();
-            return;
+            showToast(`👤 Tarjeta Operador: <strong>${profile.name}</strong> (${profile.operatorId})`, 'success');
+        } else {
+            console.log("⛔ Tarjeta ignorada en login (única tarjeta autorizada es Operador)");
         }
-        // Si ya estamos en la pantalla de login (screen-login-op) -> Asignar ID Operador
-        if (currentView === 'login-op') {
-            loginStep = 1;
-            loginOpId = profile.operatorId;
-            updateLoginDisplay();
-            return;
-        }
-    }
-
-    // Si estamos en pantalla de login de operador pero la tarjeta NO es de operador
-    if (currentView === 'login-op') {
-        showToast(`⚠️ Esta tarjeta tiene perfil '${profile.profile}'. Se requiere tarjeta de Operador.`, 'warning');
         return;
     }
 
+    // Si no hay tarjeta identificada
+    if (!profile) return;
+
+    currentCard = profile;
+
+    // LOGIN GRATUIDAD (F2 en menú)
     if (currentView === 'gratuitous-login') {
-        currentOperator = profile;
-        loginOpId = profile.operatorId;
-        showView('admin-menu');
-        updateAdminMenuSelection('F1');
+        if (profile.profile.toLowerCase() === 'operador') {
+            currentOperator = profile;
+            loginOpId = profile.operatorId;
+            showView('admin-menu');
+            updateAdminMenuSelection('F1');
+        } else {
+            showToast("⚠️ Se requiere tarjeta de Operador para gratuidad", "warning");
+        }
         return;
     }
 
+    // SUBSIDIO (F1 en menú)
     if (currentView === 'subsidy-waiting') {
         if (profile.profile === 'Discapacidad' && profile.subsidyBalance > 0) processSubsidy(profile);
         else showView('subsidy-error');
         return;
     }
 
+    // REEMBOLSO (F2 en menú)
     if (currentView === 'reimbursement-waiting') {
         if (profile.reimbursementBalance > 0) processReimbursement(profile);
         else showView('subsidy-error');
         return;
     }
 
+    // PUNTO 4: CANCELACIÓN / ANULACIÓN DE RECARGA (Tecla C / CANCEL)
+    if (currentView === 'cancel-waiting') {
+        if (!lastRechargeCard || lastRechargeAmount <= 0) {
+            showToast("⚠️ No hay ninguna recarga previa registrada para anular", "warning");
+            return;
+        }
+
+        const isMatch = (profile === lastRechargeCard) ||
+            (profile.serial && lastRechargeCard.serial && profile.serial === lastRechargeCard.serial) ||
+            (profile.atr && lastRechargeCard.atr && profile.atr === lastRechargeCard.atr) ||
+            (profile.cleanOperatorId && lastRechargeCard.cleanOperatorId && profile.cleanOperatorId === lastRechargeCard.cleanOperatorId);
+
+        if (!isMatch) {
+            showToast("⚠️ Tarjeta incorrecta: Debe colocar la misma tarjeta de la última recarga", "error");
+            return;
+        }
+
+        currentCard = profile;
+        const cancelDisplay = document.getElementById('cancel-amount-display');
+        if (cancelDisplay) cancelDisplay.innerText = "$ " + formatMoney(lastRechargeAmount);
+        showView('cancel-confirm');
+        return;
+    }
+
+    // PUNTO 3: VENTA DE TARJETA NUEVA (F4)
     if (currentView === 'sale-waiting') {
-        if (profile.status === 'Inactiva') {
+        const cardStatus = (profile.status || "Inactiva").trim().toLowerCase();
+        if (cardStatus !== 'activa') {
             currentCard = profile;
             showView('sale-confirm');
         } else {
-            alert("ESTA TARJETA YA ESTÁ ACTIVA");
-            showView('admin-menu');
+            showToast("⚠️ ESTA TARJETA YA ESTÁ ACTIVA", "warning");
+            showView('idle');
         }
         return;
     }
 
+    // PUNTO 3: OPERACIÓN NORMAL DE RECARGA EN PANTALLA BASE (idle)
     if (sessionActive && (currentView === 'idle' || currentView === 'success' || currentView === 'welcome')) {
+        // Si colocan la tarjeta de operador durante la sesión normal:
+        if (profile.profile && profile.profile.toLowerCase() === 'operador') {
+            showToast(`👤 Operador actual: ${profile.name} (${profile.operatorId})`, 'info');
+            return;
+        }
+
+        const cardStatus = (profile.status || "Inactiva").trim().toLowerCase();
+        // Si la tarjeta está INACTIVA, no se permite recarga hasta que sea vendida (F4)
+        if (cardStatus !== 'activa') {
+            console.warn(`⚠️ Tarjeta ${profile.name} está INACTIVA. Requiere venta con F4.`);
+            showToast(`⚠️ Tarjeta INACTIVA (${profile.name}). Debe activarse/venderse primero con [F4]`, 'warning');
+            return; // No avanza a recarga
+        }
+
+        // Si está ACTIVA: Procede a recarga normal
+        showToast(`💳 Tarjeta: <strong>${profile.name}</strong> (${profile.profile})`, 'success');
         showView('recharge');
         currentInput = "0";
         document.getElementById('display-profile').innerText = profile.profile.toUpperCase();
         document.getElementById('display-balance').innerText = "$ " + formatMoney(profile.balance);
         updateInputDisplay();
+        updatePIU('CARD_DETECTED', { balance: profile.balance });
+        return;
     }
 }
 
@@ -690,15 +826,25 @@ function updateLoginDisplay() {
 
 function finishLogin() {
     sessionActive = true;
-    currentOperator = cardProfiles[loginOpId.toLowerCase()] || { operatorId: loginOpId, name: "Operador Externo" };
+    currentOperator = cardProfiles[loginOpId.toLowerCase()] || 
+                      cardProfiles[loginOpId.replace(/\s+/g, '').toLowerCase()] || 
+                      { operatorId: loginOpId, name: "Operador Externo" };
 
     // Capturar tiempo de inicio real
     const now = new Date();
     sessionStartTime.date = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '.');
     sessionStartTime.time = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
+    // Punto 6: Reiniciar contadores de recargas, ventas, etc. en 0 para esta nueva sesión
+    resetSessionStats();
+
     loginStep = 0;
+    loginPass = "";
+
+    // Punto 5: La vista base después de iniciar sesión debe quedar en 'idle' ("Coloque la tarjeta / Para recargar")
     showView('idle');
+    updatePIU('IDLE');
+
     generateReceipt('Apertura');
 }
 
@@ -816,6 +962,15 @@ function generateReceipt(type, supuesto = 0, real = 0) {
         const diffRow = document.getElementById('receipt-diff-row');
         if (diffRow) diffRow.style.display = 'none';
     }
+
+    const closeBtn = document.querySelector('#virtual-receipt .close-receipt');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            r.classList.remove('show');
+            showView(sessionActive ? 'idle' : 'welcome');
+        };
+    }
+
     r.classList.add('show');
 }
 
@@ -887,29 +1042,36 @@ function processReimbursement(profile) {
 
 function finalizarVenta() {
     if (!currentCard) return;
-    currentCard.status = 'Activa'; currentCard.sessionModified = true;
+    currentCard.status = 'Activa'; // Activada para esta sesión
+    currentCard.sessionModified = true;
     const salePrice = 8000;
     stats.nVentaTarjetas++;
     stats.vVentaTarjetas += salePrice;
     lastRechargeCard = null;
     lastRechargeAmount = 0;
-    showView('recharge');
-    currentInput = "0";
-    document.getElementById('display-profile').innerText = currentCard.profile.toUpperCase();
-    document.getElementById('display-balance').innerText = "$ " + formatMoney(currentCard.balance);
-    updateInputDisplay();
+    showToast(`✅ Tarjeta activada con éxito (Venta: $8.000). Ya puede ser recargada.`, 'success');
+    updatePIU('SUCCESS', { amount: salePrice, total: currentCard.balance });
+    showView('idle');
 }
 
 function finalizarAnulacion() {
-    if (!currentCard || !lastRechargeCard || currentCard.serial !== lastRechargeCard.serial) return;
-    currentCard.balance -= lastRechargeAmount;
-    stats.nRecargas--;
-    stats.vRecargas -= lastRechargeAmount;
+    if (!currentCard || !lastRechargeCard) return;
+    const anuladoAmount = lastRechargeAmount;
+    currentCard.balance -= anuladoAmount;
+    stats.nRecargas = Math.max(0, stats.nRecargas - 1);
+    stats.vRecargas = Math.max(0, stats.vRecargas - anuladoAmount);
     stats.nAnulacRecargas++;
-    stats.vAnulacRecargas += lastRechargeAmount;
-    showView('idle');
+    stats.vAnulacRecargas += anuladoAmount;
+
+    updatePIU('SUCCESS', {
+        amount: -anuladoAmount,
+        total: currentCard.balance
+    });
+
+    showToast(`✅ Recarga anulada exitosamente: -$ ${formatMoney(anuladoAmount)}`, 'success');
     lastRechargeCard = null;
     lastRechargeAmount = 0;
+    showView('idle');
 }
 
 function startClosing() {
@@ -936,6 +1098,15 @@ function finishSession(montoSupuesto) {
 
     sessionActive = false;
     currentOperator = null;
+
+    // Punto 3: Restaurar estado inicial de tarjetas según Google Sheets
+    restoreDatabaseInitialState();
+
+    // Punto 6: Reiniciar estadísticas para la siguiente sesión
+    resetSessionStats();
+    loginBase = "0";
+    loginOpId = "";
+    loginPass = "";
 
     const closeBtn = document.querySelector('#virtual-receipt .close-receipt');
     if (closeBtn) {

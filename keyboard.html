@@ -119,28 +119,33 @@
             box-shadow:
                 0 calc(4px * var(--keyboard-scale)) 0 #222,
                 0 calc(6px * var(--keyboard-scale)) calc(8px * var(--keyboard-scale)) rgba(0, 0, 0, 0.4);
-            transition: all 0.05s;
+            transition: all 0.05s ease-out;
             position: relative;
             text-align: center;
             padding: 5px;
             user-select: none;
             -webkit-user-select: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .key:active {
-            transform: translateY(calc(3px * var(--keyboard-scale)));
-            box-shadow: 0 calc(1px * var(--keyboard-scale)) 0 #222, 0 2px 4px rgba(0, 0, 0, 0.4);
+        .key:active, .key.pressed {
+            transform: translateY(calc(3px * var(--keyboard-scale))) !important;
+            box-shadow: 0 calc(1px * var(--keyboard-scale)) 0 #222, 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+            filter: brightness(1.3);
         }
 
         .key-main {
             font-size: calc(1rem * var(--keyboard-scale));
             font-weight: 800;
+            pointer-events: none;
         }
 
         .key-sub {
             font-size: calc(0.4rem * var(--keyboard-scale));
             font-weight: 700;
             margin-top: -2px;
+            pointer-events: none;
         }
 
         .key.ok {
@@ -152,8 +157,9 @@
             border-color: #b37700;
         }
 
-        .key.ok:active {
-            box-shadow: 0 calc(1px * var(--keyboard-scale)) 0 #b37700;
+        .key.ok:active, .key.ok.pressed {
+            box-shadow: 0 calc(1px * var(--keyboard-scale)) 0 #b37700 !important;
+            filter: brightness(1.15);
         }
 
         .key.large-text .key-main {
@@ -187,50 +193,50 @@
     <div class="keyboard-frame">
         <div class="grid">
             <!-- Row 1 -->
-            <button class="key" onclick="sendKey('F1')">
+            <button class="key" data-key="F1">
                 <span class="key-main">F1</span>
                 <span class="key-sub">(1.000)</span>
             </button>
-            <button class="key" onclick="sendKey('F2')">
+            <button class="key" data-key="F2">
                 <span class="key-main">F2</span>
                 <span class="key-sub">(10.000)</span>
             </button>
-            <button class="key" onclick="sendKey('F3')">
+            <button class="key" data-key="F3">
                 <span class="key-main">F3</span>
             </button>
-            <button class="key large-text" onclick="sendKey('MENU')">
+            <button class="key large-text" data-key="MENU">
                 <span class="key-main">Menú</span>
             </button>
 
             <!-- Row 2 -->
-            <button class="key" onclick="sendKey('1')"><span class="key-main">1</span></button>
-            <button class="key" onclick="sendKey('2')"><span class="key-main">2</span></button>
-            <button class="key" onclick="sendKey('3')"><span class="key-main">3</span></button>
-            <button class="key" onclick="sendKey('F4')"><span class="key-main">F4</span></button>
+            <button class="key" data-key="1"><span class="key-main">1</span></button>
+            <button class="key" data-key="2"><span class="key-main">2</span></button>
+            <button class="key" data-key="3"><span class="key-main">3</span></button>
+            <button class="key" data-key="F4"><span class="key-main">F4</span></button>
 
             <!-- Row 3 -->
-            <button class="key" onclick="sendKey('4')"><span class="key-main">4</span></button>
-            <button class="key" onclick="sendKey('5')"><span class="key-main">5</span></button>
-            <button class="key" onclick="sendKey('6')"><span class="key-main">6</span></button>
-            <button class="key" onclick="sendKey('F5')"><span class="key-main">F5</span></button>
+            <button class="key" data-key="4"><span class="key-main">4</span></button>
+            <button class="key" data-key="5"><span class="key-main">5</span></button>
+            <button class="key" data-key="6"><span class="key-main">6</span></button>
+            <button class="key" data-key="F5"><span class="key-main">F5</span></button>
 
             <!-- Row 4 -->
-            <button class="key" onclick="sendKey('7')"><span class="key-main">7</span></button>
-            <button class="key" onclick="sendKey('8')"><span class="key-main">8</span></button>
-            <button class="key" onclick="sendKey('9')"><span class="key-main">9</span></button>
-            <button class="key" onclick="sendKey('CANCEL')"><span class="key-main">C</span></button>
+            <button class="key" data-key="7"><span class="key-main">7</span></button>
+            <button class="key" data-key="8"><span class="key-main">8</span></button>
+            <button class="key" data-key="9"><span class="key-main">9</span></button>
+            <button class="key" data-key="CANCEL"><span class="key-main">C</span></button>
 
             <!-- Row 5 -->
-            <button class="key" onclick="sendKey('00')">
+            <button class="key" data-key="00">
                 <span class="key-main">00</span>
                 <span class="key-sub">(Prt)</span>
             </button>
-            <button class="key" onclick="sendKey('0')"><span class="key-main">0</span></button>
-            <button class="key" onclick="sendKey('BKSP')">
+            <button class="key" data-key="0"><span class="key-main">0</span></button>
+            <button class="key" data-key="BKSP">
                 <span class="key-main">&lt;&lt;</span>
                 <span class="key-sub">(Lock)</span>
             </button>
-            <button class="key ok" onclick="sendKey('OK')">
+            <button class="key ok" data-key="OK">
                 <span class="key-main">OK</span>
             </button>
         </div>
@@ -264,12 +270,38 @@
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set('device', id);
             window.history.replaceState({}, '', newUrl);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                statusText.innerText = `Conectado al Bridge para [Dispositivo ${currentDeviceId}]`;
+            }
+        }
+
+        // Web Audio Feedback (0ms de latencia para confirmar pulsación al usuario)
+        let audioCtx = null;
+        function playKeySound() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(320, audioCtx.currentTime + 0.035);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.035);
+            } catch (e) { }
         }
 
         // Detección de host para WebSocket
         function getWsUrl() {
             let host = window.location.hostname || 'localhost';
-            // Si corre en Vercel u otro dominio externo
             if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
                 let savedIp = localStorage.getItem('local_pc_ip');
                 if (!savedIp) {
@@ -300,7 +332,7 @@
                     pill.classList.remove('online');
                     pill.title = "Desconectado";
                     statusText.innerText = 'Desconectado del Bridge. Reintentando...';
-                    setTimeout(connectWs, 3000);
+                    setTimeout(connectWs, 2000);
                 };
 
                 socket.onerror = () => {
@@ -308,27 +340,49 @@
                 };
             } catch (e) {
                 console.error(e);
-                setTimeout(connectWs, 3000);
+                setTimeout(connectWs, 2000);
             }
         }
         connectWs();
 
         function sendKey(key) {
-            console.log(`[Dispositivo ${currentDeviceId}] Tecla:`, key);
+            console.log(`[Dispositivo ${currentDeviceId}] Tecla pulsada:`, key);
+            playKeySound();
+
+            if (window.navigator && window.navigator.vibrate) {
+                try { window.navigator.vibrate(30); } catch (e) { }
+            }
+
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({
                     type: 'REMOTE_KEY',
                     deviceId: currentDeviceId,
                     key: key
                 }));
-
-                if (window.navigator && window.navigator.vibrate) {
-                    window.navigator.vibrate(40);
-                }
             } else {
-                console.warn("Socket no está conectado");
+                console.warn("Socket no está conectado al Bridge");
+                pill.classList.remove('online');
+                statusText.innerText = `Reconectando al Bridge... (Tecla ${key} guardada)`;
+                connectWs();
             }
         }
+
+        // Bindeo inmediato con Pointer Events (Elimina por completo el retraso de 300ms de pantallas táctiles)
+        document.querySelectorAll('.key').forEach(btn => {
+            const key = btn.getAttribute('data-key');
+            if (!key) return;
+
+            btn.addEventListener('pointerdown', (e) => {
+                e.preventDefault(); // Impide emulación de clicks tardíos o zoom
+                btn.classList.add('pressed');
+                sendKey(key);
+            });
+
+            const clearPress = () => btn.classList.remove('pressed');
+            btn.addEventListener('pointerup', clearPress);
+            btn.addEventListener('pointercancel', clearPress);
+            btn.addEventListener('pointerleave', clearPress);
+        });
     </script>
 </body>
 
