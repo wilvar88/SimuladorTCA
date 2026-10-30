@@ -33,6 +33,10 @@ echo Dispositivo 69: http://!MY_IP!:3000/?device=0069 (Lector RR234-016991)
 echo Dispositivo 71: http://!MY_IP!:3000/?device=0071 (Lector RR234-017108)
 echo.
 
+:: Liberar puertos 3000 y 8080 si quedaron procesos previos colgados
+echo [OK] Verificando que los puertos 3000 y 8080 esten libres...
+powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000, 8080 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+
 :: Abrir el Hub Central
 start http://!MY_IP!:3000/hub.html
 

@@ -16,6 +16,14 @@ const WS_PORT = 8080;
 
 // Servidor WebSocket
 const wss = new WebSocket.Server({ port: WS_PORT });
+wss.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n❌ ERROR: El puerto WebSocket ${WS_PORT} ya está en uso.`);
+        console.error('⚠️ Ya existe otra ventana del bridge ejecutándose.');
+        console.error('   Cierra la otra ventana de comandos o ejecuta INICIADOR.bat.\n');
+        process.exit(1);
+    }
+});
 // Inicialización del subsistema NFC
 const nfc = new nfcCard.NFC();
 
@@ -193,6 +201,15 @@ const server = http.createServer((req, res) => {
             res.end(content, 'utf-8');
         }
     });
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n❌ ERROR: El puerto web ${HTTP_PORT} ya está en uso.`);
+        console.error('⚠️ Ya existe otra ventana del bridge ejecutándose.');
+        console.error('   Cierra la otra ventana de comandos o ejecuta INICIADOR.bat.\n');
+        process.exit(1);
+    }
 });
 
 server.listen(HTTP_PORT, () => {
