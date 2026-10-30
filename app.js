@@ -872,7 +872,7 @@ function generateReceipt(type, supuesto = 0, real = 0) {
     // BLOQUE 1: IDENTIFICACIÓN BÁSICA
     const block1 = [
         ["Serie de recibo", currentSerie],
-        ["ID de cargador", "0000805592"],
+        ["ID de cargador", currentDeviceId || "0068"],
         ["Nombre de Estacion", "Héroes"]
     ];
 
@@ -1130,7 +1130,7 @@ function syncToGoogleSheets(supuesto, real) {
 
     const payload = {
         serieRecibo: serieActual,
-        idCargador: "0000805592",
+        idCargador: currentDeviceId || "0068",
         nombreEstacion: "Héroes",
         idOperador: opId,
         fechaHoraInic: `${dateInit} ${timeInit}`,
