@@ -1,5 +1,11 @@
 Set WshShell = CreateObject("WScript.Shell")
-strPath = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+Set fso = CreateObject("Scripting.FileSystemObject")
+strPath = fso.GetParentFolderName(WScript.ScriptFullName)
 WshShell.CurrentDirectory = strPath
-WshShell.Run "cmd /c node bridge.js", 0, False
 
+nodeExe = "node"
+If fso.FileExists("C:\Program Files\nodejs\node.exe") Then
+    nodeExe = """C:\Program Files\nodejs\node.exe"""
+End If
+
+WshShell.Run "cmd /c " & nodeExe & " bridge.js", 0, False

@@ -264,10 +264,27 @@ try {
     cloudBus = createCloudBus({ WebSocket });
     if (cloudBus) {
         cloudBus.onStatus((online) => {
-            if (online) console.log('☁️  Cloud Bus WSS conectado (Soporte remoto para Tablets/Móviles en Vercel activo)');
+            if (online) {
+                console.log('☁️  Cloud Bus WSS conectado (Soporte remoto para otros PCs/Tablets/Móviles en Vercel activo)');
+                cloudBus.publish({
+                    type: 'DEVICES_INFO',
+                    devices: devicesConfig.devices,
+                    activeReaders: Array.from(activeCardReaders.keys()),
+                    localIp: getLocalIpAddress()
+                });
+            }
         });
         cloudBus.onMessage((data) => {
             if (!data) return;
+            if (data.type === 'REQUEST_DEVICES') {
+                cloudBus.publish({
+                    type: 'DEVICES_INFO',
+                    devices: devicesConfig.devices,
+                    activeReaders: Array.from(activeCardReaders.keys()),
+                    localIp: getLocalIpAddress()
+                });
+                return;
+            }
             if (data.type === 'BEEP_DEVICE') {
                 const dev = devicesConfig.devices[data.deviceId];
                 if (dev && dev.readerName) {

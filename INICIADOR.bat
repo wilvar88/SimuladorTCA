@@ -8,39 +8,29 @@ echo    Propiedad Intelectual de Wilson Varela Munoz
 echo =======================================================
 echo.
 
-:: Limpiar y forzar apertura de los puertos 3000 y 8080 en el firewall (requiere permisos)
-echo [1/3] Configurando Firewall de Windows...
-powershell -Command "Start-Process netsh -ArgumentList 'advfirewall firewall delete rule name=\"SimuladorTCA\"' -Verb RunAs -Wait" >nul 2>&1
-powershell -Command "Start-Process netsh -ArgumentList 'advfirewall firewall add rule name=\"SimuladorTCA\" dir=in action=allow protocol=TCP localport=3000,8080 profile=any' -Verb RunAs -Wait" >nul 2>&1
-echo [OK] Reglas de Firewall aplicadas.
+:: Asegurar que el servicio de Tarjeta Inteligente de Windows (SCardSvr) este activo
+echo [1/4] Verificando servicio de Tarjetas Inteligentes (PC/SC)...
+powershell -NoProfile -Command "Set-Service -Name SCardSvr -StartupType Automatic -ErrorAction SilentlyContinue; Start-Service -Name SCardSvr -ErrorAction SilentlyContinue" >nul 2>&1
+echo [OK] Servicio SCardSvr activo.
 
-:: Detectar IP local automáticamente usando PowerShell (Filtrando APIPA 169.254 y virtuales)
-echo [2/3] Detectando direccion IP local de red...
-for /f "usebackq tokens=*" %%i in (`powershell -NoProfile -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike '*Loopback*' -and $_.InterfaceAlias -notlike '*Virtual*' -and $_.InterfaceAlias -notlike '*VMware*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -ExpandProperty IPAddress -First 1)"`) do (
-    set MY_IP=%%i
-)
+:: Configurar Firewall de Windows
+echo [2/4] Configurando Firewall de Windows...
+powershell -NoProfile -Command "Start-Process netsh -ArgumentList 'advfirewall firewall add rule name=\"SimuladorTCA\" dir=in action=allow protocol=TCP localport=3000,8080 profile=any' -Verb RunAs -Wait" >nul 2>&1
+echo [OK] Reglas de Firewall verificadas.
 
-if "!MY_IP!"=="" (
-    set MY_IP=localhost
-)
-echo [OK] IP de red detectada: !MY_IP!
-
-echo.
-echo [3/3] Abriendo Central de Dispositivos (Hub)...
-echo URL Hub:        http://!MY_IP!:3000/hub.html
-echo Dispositivo 68: http://!MY_IP!:3000/?device=0068 (Lector RR234-016879)
-echo Dispositivo 69: http://!MY_IP!:3000/?device=0069 (Lector RR234-016991)
-echo Dispositivo 71: http://!MY_IP!:3000/?device=0071 (Lector RR234-017108)
-echo.
-
-:: Liberar puertos 3000 y 8080 si quedaron procesos previos colgados
-echo [OK] Verificando que los puertos 3000 y 8080 esten libres...
+:: Reiniciar Bridge en segundo plano (no se cierra al cerrar esta ventana)
+echo [3/4] Iniciando Bridge de Hardware en segundo plano...
 powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000, 8080 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+timeout /t 1 /nobreak >nul
+wscript.exe "%~dp0INICIAR_BRIDGE_SILENCIOSO.vbs"
+timeout /t 2 /nobreak >nul
 
-:: Abrir el Hub Central
-start http://!MY_IP!:3000/hub.html
+echo [4/4] Abriendo Central de Dispositivos (Hub)...
+start https://simuladortca.vercel.app/hub.html
 
-:: Iniciar el bridge (el servidor web ya está integrado en bridge.js)
-npm run start:bridge
-
-pause
+echo.
+echo =======================================================
+echo  BRIDGE ACTIVO EN SEGUNDO PLANO (PUERTOS 3000 Y 8080)
+echo  Puedes cerrar esta ventana con tranquilidad.
+echo =======================================================
+timeout /t 4

@@ -981,6 +981,8 @@
             });
         }
 
+        let cloudBridgeActive = false;
+
         function handleHubPayload(data, fromCloud = false) {
             if (!data) return;
             if (!fromCloud && window.TCACloudBus && data._id && !window.TCACloudBus.markAndCheckId(data._id)) {
@@ -992,6 +994,15 @@
             } else if (data.type === 'CARD_REMOVED') {
                 logEvent(`📤 Tarjeta retirada de <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong>`, '');
             } else if (data.type === 'DEVICES_INFO') {
+                if (fromCloud) {
+                    cloudBridgeActive = true;
+                    hwDot.classList.add('active');
+                    if (!socket || socket.readyState !== WebSocket.OPEN) {
+                        hwLabel.innerText = "Bridge: Conectado (Remoto/Nube)";
+                    }
+                    const btnStart = document.getElementById('btn-start-bridge');
+                    if (btnStart) btnStart.style.display = 'none';
+                }
                 if (data.localIp) localStorage.setItem('local_pc_ip', data.localIp);
                 updateDevicesInfo(data);
             } else if (data.type === 'DB_SYNC') {
@@ -1007,6 +1018,11 @@
 
         if (window.TCACloudBus) {
             window.TCACloudBus.onMessage((data) => handleHubPayload(data, true));
+            window.TCACloudBus.onStatus((online) => {
+                if (online) {
+                    window.TCACloudBus.publish({ type: 'REQUEST_DEVICES' });
+                }
+            });
         }
 
         function connectWs() {
@@ -1024,12 +1040,13 @@
                 };
 
                 socket.onclose = () => {
-                    hwDot.classList.remove('active');
-                    hwLabel.innerText = "Bridge: Desconectado";
-                    const btnStart = document.getElementById('btn-start-bridge');
-                    if (btnStart) btnStart.style.display = 'inline-block';
-                    logEvent("Desconectado del Bridge. Reintentando...", "beep");
-                    setTimeout(connectWs, 2500);
+                    if (!cloudBridgeActive) {
+                        hwDot.classList.remove('active');
+                        hwLabel.innerText = "Bridge: Desconectado";
+                        const btnStart = document.getElementById('btn-start-bridge');
+                        if (btnStart) btnStart.style.display = 'inline-block';
+                    }
+                    setTimeout(connectWs, 3000);
                 };
 
                 socket.onmessage = (event) => {
