@@ -247,6 +247,7 @@
         <span id="bridge-status-text">Conectando al Hardware Bridge...</span>
     </div>
 
+    <script src="cloud_bus.js"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         let currentDeviceId = urlParams.get('device') || '0068';
@@ -320,6 +321,16 @@
         const pill = document.getElementById('status-pill');
         const statusText = document.getElementById('bridge-status-text');
 
+        if (window.TCACloudBus) {
+            window.TCACloudBus.onStatus((online) => {
+                if (online) {
+                    pill.classList.add('online');
+                    pill.title = "Conectado en Tiempo Real";
+                    statusText.innerText = `Conectado en Tiempo Real para [Dispositivo ${currentDeviceId}]`;
+                }
+            });
+        }
+
         function connectWs() {
             try {
                 const wsUrl = getWsUrl();
@@ -332,21 +343,23 @@
                 };
 
                 socket.onclose = () => {
-                    if (localChannel) {
+                    if (window.TCACloudBus && window.TCACloudBus.isConnected()) {
+                        pill.classList.add('online');
+                        statusText.innerText = `Conectado en Tiempo Real para [Dispositivo ${currentDeviceId}]`;
+                    } else if (localChannel) {
                         pill.classList.add('online');
                         statusText.innerText = `Modo Web Directo Activo para [Dispositivo ${currentDeviceId}]`;
                     } else {
                         pill.classList.remove('online');
                         pill.title = "Desconectado";
-                        statusText.innerText = 'Desconectado del Bridge. Reintentando...';
+                        statusText.innerText = 'Reconectando...';
                     }
-                    setTimeout(connectWs, 3000);
+                    setTimeout(connectWs, 4000);
                 };
 
                 socket.onerror = () => { };
             } catch (e) {
-                console.error(e);
-                setTimeout(connectWs, 3000);
+                setTimeout(connectWs, 4000);
             }
         }
         connectWs();
@@ -365,17 +378,16 @@
                 key: key
             };
 
+            if (window.TCACloudBus) {
+                window.TCACloudBus.publish(payload);
+            }
+
             if (localChannel) {
                 try { localChannel.postMessage(payload); } catch (e) { }
             }
 
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify(payload));
-            } else if (!localChannel) {
-                console.warn("Socket no está conectado al Bridge");
-                pill.classList.remove('online');
-                statusText.innerText = `Reconectando al Bridge... (Tecla ${key} guardada)`;
-                connectWs();
             }
         }
 

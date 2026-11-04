@@ -140,6 +140,7 @@
         <div id="status-msg">ESPERANDO TARJETA...</div>
     </div>
 
+    <script src="cloud_bus.js"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         let currentDeviceId = urlParams.get('device') || '0068';
@@ -185,8 +186,11 @@
             statusMsg.style.display = "block";
         }
 
-        function handlePiuData(data) {
+        function handlePiuData(data, fromCloud = false) {
             if (!data) return;
+            if (!fromCloud && window.TCACloudBus && data._id && !window.TCACloudBus.markAndCheckId(data._id)) {
+                return;
+            }
             if (data.deviceId && data.deviceId !== currentDeviceId) {
                 return;
             }
@@ -216,7 +220,14 @@
 
         if (localChannel) {
             piuDot.classList.add('online');
-            localChannel.onmessage = (event) => handlePiuData(event.data);
+            localChannel.onmessage = (event) => handlePiuData(event.data, false);
+        }
+
+        if (window.TCACloudBus) {
+            window.TCACloudBus.onStatus((online) => {
+                if (online) piuDot.classList.add('online');
+            });
+            window.TCACloudBus.onMessage((data) => handlePiuData(data, true));
         }
 
         function connectWs() {
@@ -230,8 +241,10 @@
                 };
 
                 socket.onclose = () => {
-                    if (!localChannel) piuDot.classList.remove('online');
-                    setTimeout(connectWs, 3000);
+                    if (!localChannel && (!window.TCACloudBus || !window.TCACloudBus.isConnected())) {
+                        piuDot.classList.remove('online');
+                    }
+                    setTimeout(connectWs, 4000);
                 };
 
                 socket.onerror = () => { };
@@ -239,14 +252,13 @@
                 socket.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-                        handlePiuData(data);
+                        handlePiuData(data, false);
                     } catch (e) {
                         console.error("Error procesando mensaje en PIU:", e);
                     }
                 };
             } catch (err) {
-                console.error(err);
-                setTimeout(connectWs, 3000);
+                setTimeout(connectWs, 4000);
             }
         }
 

@@ -208,24 +208,47 @@ async function fetchDatabaseDirectly() {
     } catch (e) { }
 }
 
-if (localChannel) {
-    localChannel.onmessage = (event) => {
-        const data = event.data;
-        if (!data) return;
-        if (data.type === 'REMOTE_KEY') {
-            if (data.deviceId && data.deviceId !== currentDeviceId) return;
-            processFunction(data.key);
-        } else if (data.type === 'CARD_DETECTED') {
-            if (data.deviceId && data.deviceId !== currentDeviceId) {
-                showDeviceMismatchNotification(data.deviceId, data.readerName);
-                return;
-            }
-            onCardDetected(data.uid, data.atr, data.staticId, data.tagType);
-        } else if (data.type === 'CARD_REMOVED') {
-            if (data.deviceId && data.deviceId !== currentDeviceId) return;
-            onCardRemoved();
+function handleBridgePayload(data, fromCloud = false) {
+    if (!data) return;
+    if (!fromCloud && window.TCACloudBus && data._id && !window.TCACloudBus.markAndCheckId(data._id)) {
+        return;
+    }
+    if (data.type === 'DEVICES_INFO' && data.localIp) {
+        localStorage.setItem('local_pc_ip', data.localIp);
+    } else if (data.type === 'CARD_DETECTED') {
+        if (data.deviceId && data.deviceId !== currentDeviceId) {
+            showDeviceMismatchNotification(data.deviceId, data.readerName);
+            return;
         }
-    };
+        onCardDetected(data.uid, data.atr, data.staticId, data.tagType);
+    } else if (data.type === 'CARD_REMOVED') {
+        if (data.deviceId && data.deviceId !== currentDeviceId) return;
+        onCardRemoved();
+    } else if (data.type === 'REMOTE_KEY') {
+        if (data.deviceId && data.deviceId !== currentDeviceId) return;
+        const kbDot = document.getElementById('kb-dot');
+        if (kbDot) kbDot.classList.add('online');
+        processFunction(data.key);
+    } else if (data.type === 'DB_SYNC') {
+        parseCSVDatabase(data.data);
+        hideSyncAlert();
+    } else if (data.type === 'DB_SYNC_START') {
+        showSyncAlert();
+    } else if (data.type === 'DB_SYNC_ERROR') {
+        showSyncError(data.error || data.status);
+    }
+}
+
+if (localChannel) {
+    localChannel.onmessage = (event) => handleBridgePayload(event.data, false);
+}
+
+if (window.TCACloudBus) {
+    window.TCACloudBus.onMessage((data) => handleBridgePayload(data, true));
+    window.TCACloudBus.onStatus((online) => {
+        const dot = document.getElementById('hardware-dot');
+        if (online && dot) dot.classList.add('online');
+    });
 }
 
 window.onload = () => {
@@ -317,7 +340,9 @@ function connectBridge() {
     };
 
     ws.onclose = () => {
-        dot.classList.remove('online');
+        if (!window.TCACloudBus || !window.TCACloudBus.isConnected()) {
+            dot.classList.remove('online');
+        }
         const dbStatus = document.getElementById('db-status');
         if (dbStatus && Object.keys(cardProfiles).length === 0) {
             dbStatus.innerText = "DB: Sincronizando...";
@@ -329,29 +354,7 @@ function connectBridge() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (data.type === 'DEVICES_INFO' && data.localIp) {
-                localStorage.setItem('local_pc_ip', data.localIp);
-            } else if (data.type === 'CARD_DETECTED') {
-                // Notificar si la tarjeta fue leída en otro lector para que el usuario no se confunda
-                if (data.deviceId && data.deviceId !== currentDeviceId) {
-                    showDeviceMismatchNotification(data.deviceId, data.readerName);
-                    return;
-                }
-                onCardDetected(data.uid, data.atr, data.staticId, data.tagType);
-            } else if (data.type === 'CARD_REMOVED') {
-                if (data.deviceId && data.deviceId !== currentDeviceId) return;
-                onCardRemoved();
-            } else if (data.type === 'REMOTE_KEY') {
-                if (data.deviceId && data.deviceId !== currentDeviceId) return;
-                processFunction(data.key);
-            } else if (data.type === 'DB_SYNC') {
-                parseCSVDatabase(data.data);
-                hideSyncAlert();
-            } else if (data.type === 'DB_SYNC_START') {
-                showSyncAlert();
-            } else if (data.type === 'DB_SYNC_ERROR') {
-                showSyncError(data.error || data.status);
-            }
+            handleBridgePayload(data, false);
         } catch (e) {
             console.error("Error handling bridge message:", e);
         }
@@ -370,6 +373,9 @@ function updatePIU(state, extra = {}) {
         state: state,
         ...extra
     };
+    if (window.TCACloudBus) {
+        window.TCACloudBus.publish(payload);
+    }
     if (localChannel) {
         try { localChannel.postMessage(payload); } catch (e) { }
     }

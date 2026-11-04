@@ -256,13 +256,46 @@ server.listen(HTTP_PORT, () => {
     console.log(`🌐 Servidor web iniciado en http://localhost:${HTTP_PORT}`);
 });
 
-// --- MANEJO DE CLIENTES WEBSOCKET ---
+// --- MANEJO DE CLIENTES WEBSOCKET Y BUS EN LA NUBE (Para Tablets/Móviles en Vercel) ---
 const clients = new Set();
+let cloudBus = null;
+try {
+    const { createCloudBus } = require('./cloud_bus.js');
+    cloudBus = createCloudBus({ WebSocket });
+    if (cloudBus) {
+        cloudBus.onStatus((online) => {
+            if (online) console.log('☁️  Cloud Bus WSS conectado (Soporte remoto para Tablets/Móviles en Vercel activo)');
+        });
+        cloudBus.onMessage((data) => {
+            if (!data) return;
+            if (data.type === 'BEEP_DEVICE') {
+                const dev = devicesConfig.devices[data.deviceId];
+                if (dev && dev.readerName) {
+                    triggerBuzzer(dev.readerName, data.duration || 12);
+                }
+                return;
+            }
+            if (data.type === 'REMOTE_KEY' || data.type === 'PIU_UPDATE') {
+                const msg = JSON.stringify(data);
+                clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(msg);
+                    }
+                });
+            }
+        });
+    }
+} catch (e) {
+    console.warn('⚠️ Cloud Bus no disponible:', e.message);
+}
 
 /**
- * Envía un mensaje a todos los clientes WebSocket conectados
+ * Envía un mensaje a todos los clientes WebSocket conectados y al Cloud Bus
  */
 function broadcast(data) {
+    if (cloudBus && (data.type === 'CARD_DETECTED' || data.type === 'CARD_REMOVED' || data.type === 'DEVICES_INFO')) {
+        cloudBus.publish(data);
+    }
     const msg = JSON.stringify(data);
     clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {

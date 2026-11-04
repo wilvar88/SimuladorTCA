@@ -837,6 +837,7 @@
         </div>
     </div>
 
+    <script src="cloud_bus.js"></script>
     <script>
         function logEvent(msg, type = '') {
             const box = document.getElementById('activity-log');
@@ -980,6 +981,34 @@
             });
         }
 
+        function handleHubPayload(data, fromCloud = false) {
+            if (!data) return;
+            if (!fromCloud && window.TCACloudBus && data._id && !window.TCACloudBus.markAndCheckId(data._id)) {
+                return;
+            }
+            if (data.type === 'CARD_DETECTED') {
+                handleInspectorScan(data);
+                logEvent(`💳 ${data.tagType || 'Tarjeta'} en <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong> (${data.readerName}) &bull; UID: ${data.uid || '(N/A)'} &bull; ATR: ${data.atr}`, 'card');
+            } else if (data.type === 'CARD_REMOVED') {
+                logEvent(`📤 Tarjeta retirada de <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong>`, '');
+            } else if (data.type === 'DEVICES_INFO') {
+                if (data.localIp) localStorage.setItem('local_pc_ip', data.localIp);
+                updateDevicesInfo(data);
+            } else if (data.type === 'DB_SYNC') {
+                parseHubDB(data.data || '');
+                dbDot.classList.add('active');
+                const lines = (data.data || '').split(/\r?\n/).filter(l => l.trim()).length - 1;
+                dbLabel.innerText = `DB: OK (${lines} registros)`;
+                logEvent(`Base de Datos Google Sheets sincronizada (${lines} perfiles).`, 'card');
+            } else if (data.type === 'DB_SYNC_START') {
+                dbLabel.innerText = "DB: Sincronizando...";
+            }
+        }
+
+        if (window.TCACloudBus) {
+            window.TCACloudBus.onMessage((data) => handleHubPayload(data, true));
+        }
+
         function connectWs() {
             try {
                 socket = new WebSocket(getWsUrl());
@@ -1006,24 +1035,7 @@
                 socket.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-
-                        if (data.type === 'CARD_DETECTED') {
-                            handleInspectorScan(data);
-                            logEvent(`💳 ${data.tagType || 'Tarjeta'} en <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong> (${data.readerName}) &bull; UID: ${data.uid || '(N/A)'} &bull; ATR: ${data.atr}`, 'card');
-                        } else if (data.type === 'CARD_REMOVED') {
-                            logEvent(`📤 Tarjeta retirada de <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong>`, '');
-                        } else if (data.type === 'DEVICES_INFO') {
-                            if (data.localIp) localStorage.setItem('local_pc_ip', data.localIp);
-                            updateDevicesInfo(data);
-                        } else if (data.type === 'DB_SYNC') {
-                            parseHubDB(data.data || '');
-                            dbDot.classList.add('active');
-                            const lines = (data.data || '').split(/\r?\n/).filter(l => l.trim()).length - 1;
-                            dbLabel.innerText = `DB: OK (${lines} registros)`;
-                            logEvent(`Base de Datos Google Sheets sincronizada (${lines} perfiles).`, 'card');
-                        } else if (data.type === 'DB_SYNC_START') {
-                            dbLabel.innerText = "DB: Sincronizando...";
-                        }
+                        handleHubPayload(data, false);
                     } catch (e) {
                         console.error(e);
                     }
@@ -1048,11 +1060,15 @@
 
         function beepDevice(devId) {
             logEvent(`🔔 Enviando señal de sonido (Buzzer) al Dispositivo ${devId}...`, 'beep');
+            const payload = {
+                type: 'BEEP_DEVICE',
+                deviceId: devId
+            };
+            if (window.TCACloudBus) {
+                window.TCACloudBus.publish(payload);
+            }
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    type: 'BEEP_DEVICE',
-                    deviceId: devId
-                }));
+                socket.send(JSON.stringify(payload));
             } else {
                 fetch(`/api/beep?device=${devId}`).catch(() => {});
             }
