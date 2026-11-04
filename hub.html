@@ -616,6 +616,7 @@
                 <div class="pill">
                     <span id="hw-dot" class="dot-ind"></span>
                     <span id="hw-status-label">Bridge: Conectando...</span>
+                    <a id="btn-start-bridge" href="tca-bridge://start" style="display: none; margin-left: 8px; background: var(--tm-orange); color: #000; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; text-decoration: none;" title="Iniciar servicio local de lectores USB">⚡ Activar</a>
                 </div>
                 <div class="pill">
                     <span id="db-dot" class="dot-ind"></span>
@@ -849,6 +850,7 @@
 
         const DB_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8ihPAX5tJ7UJ-jbKCp-bCvmnVBWrRrbeq_aaWVCI28nZt_xaouhaRrx85MSl_VBMH1cGtMVF9CNeY/pub?output=csv";
 
+        let wsUseIpv4 = true;
         function getWsUrl() {
             const params = new URLSearchParams(window.location.search);
             const customHost = params.get('ws') || params.get('ip');
@@ -857,7 +859,9 @@
             }
             let host = window.location.hostname || 'localhost';
             if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
-                return 'ws://localhost:8080';
+                const target = wsUseIpv4 ? '127.0.0.1' : 'localhost';
+                wsUseIpv4 = !wsUseIpv4;
+                return `ws://${target}:8080`;
             }
             return `ws://${host}:8080`;
         }
@@ -983,6 +987,8 @@
                 socket.onopen = () => {
                     hwDot.classList.add('active');
                     hwLabel.innerText = "Bridge: Conectado (8080)";
+                    const btnStart = document.getElementById('btn-start-bridge');
+                    if (btnStart) btnStart.style.display = 'none';
                     logEvent("Conectado con el Bridge de Hardware WebSocket.", "card");
                     socket.send(JSON.stringify({ type: 'REQUEST_DEVICES' }));
                     socket.send(JSON.stringify({ type: 'REQUEST_DB' }));
@@ -991,8 +997,10 @@
                 socket.onclose = () => {
                     hwDot.classList.remove('active');
                     hwLabel.innerText = "Bridge: Desconectado";
+                    const btnStart = document.getElementById('btn-start-bridge');
+                    if (btnStart) btnStart.style.display = 'inline-block';
                     logEvent("Desconectado del Bridge. Reintentando...", "beep");
-                    setTimeout(connectWs, 3000);
+                    setTimeout(connectWs, 2500);
                 };
 
                 socket.onmessage = (event) => {

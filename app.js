@@ -255,6 +255,7 @@ function startTime() {
 }
 
 // DETECCIÓN INTELIGENTE DE URL PARA EL BRIDGE (Local y Vercel)
+let wsUseIpv4 = true;
 function getWsUrl() {
     const params = new URLSearchParams(window.location.search);
     const customHost = params.get('ws') || params.get('ip');
@@ -262,9 +263,11 @@ function getWsUrl() {
         return `ws://${customHost}:8080`;
     }
     let host = window.location.hostname || 'localhost';
-    // Desde HTTPS (Vercel), los navegadores permiten ws://localhost:8080 para conectar con el Bridge de esta PC sin bloqueo de Mixed Content
+    // Desde HTTPS (Vercel), los navegadores permiten ws://127.0.0.1:8080 y ws://localhost:8080 para conectar con el Bridge de esta PC
     if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
-        return 'ws://localhost:8080';
+        const target = wsUseIpv4 ? '127.0.0.1' : 'localhost';
+        wsUseIpv4 = !wsUseIpv4;
+        return `ws://${target}:8080`;
     }
     return `ws://${host}:8080`;
 }

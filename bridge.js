@@ -30,15 +30,38 @@ process.on('uncaughtException', (err) => {
 const HTTP_PORT = 3000;
 const WS_PORT = 8080;
 
-// Servidor WebSocket
-const wss = new WebSocket.Server({ port: WS_PORT });
-wss.on('error', (err) => {
+// Servidor HTTP auxiliar para WebSocket (con soporte CORS + Private Network Access de Chrome para Vercel HTTPS -> localhost)
+const wsHttpServer = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ws_bridge_online', port: WS_PORT }));
+});
+
+const wss = new WebSocket.Server({ server: wsHttpServer });
+wss.on('headers', (headers) => {
+    headers.push('Access-Control-Allow-Origin: *');
+    headers.push('Access-Control-Allow-Private-Network: true');
+});
+
+wsHttpServer.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
         console.error(`\n❌ ERROR: El puerto WebSocket ${WS_PORT} ya está en uso.`);
         console.error('⚠️ Ya existe otra ventana del bridge ejecutándose.');
         console.error('   Cierra la otra ventana de comandos o ejecuta INICIADOR.bat.\n');
         process.exit(1);
     }
+});
+
+wsHttpServer.listen(WS_PORT, () => {
+    console.log(`🔌 Servidor WebSocket activo en ws://localhost:${WS_PORT} y ws://127.0.0.1:${WS_PORT}`);
 });
 // Inicialización del subsistema NFC
 const nfc = new nfcCard.NFC();
@@ -146,10 +169,11 @@ function triggerBuzzer(readerName, durationUnits = 10) {
 
 // --- SERVIDOR WEB INTEGRADO (HTTP) ---
 const server = http.createServer((req, res) => {
-    // Permitir CORS para consultas desde Vercel o aplicaciones externas
+    // Permitir CORS y Private Network Access (Chrome HTTPS Vercel -> localhost)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
 
     if (req.method === 'OPTIONS') {
         res.writeHead(204);
