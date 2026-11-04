@@ -299,16 +299,19 @@
             } catch (e) { }
         }
 
+        // Canal local entre pestañas/ventanas (funciona en Vercel aún sin Bridge local)
+        const localChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('tca_simulator_channel') : null;
+
         // Detección de host para WebSocket
         function getWsUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const customHost = params.get('ws') || params.get('ip');
+            if (customHost && window.location.protocol !== 'https:') {
+                return `ws://${customHost}:8080`;
+            }
             let host = window.location.hostname || 'localhost';
             if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
-                let savedIp = localStorage.getItem('local_pc_ip');
-                if (!savedIp) {
-                    savedIp = prompt("Ingresa la IP local de la PC con los lectores (ej: 192.168.1.50):", "192.168.1.");
-                    if (savedIp) localStorage.setItem('local_pc_ip', savedIp);
-                }
-                if (savedIp) return `ws://${savedIp}:8080`;
+                return 'ws://localhost:8080';
             }
             return `ws://${host}:8080`;
         }
@@ -329,18 +332,21 @@
                 };
 
                 socket.onclose = () => {
-                    pill.classList.remove('online');
-                    pill.title = "Desconectado";
-                    statusText.innerText = 'Desconectado del Bridge. Reintentando...';
-                    setTimeout(connectWs, 2000);
+                    if (localChannel) {
+                        pill.classList.add('online');
+                        statusText.innerText = `Modo Web Directo Activo para [Dispositivo ${currentDeviceId}]`;
+                    } else {
+                        pill.classList.remove('online');
+                        pill.title = "Desconectado";
+                        statusText.innerText = 'Desconectado del Bridge. Reintentando...';
+                    }
+                    setTimeout(connectWs, 3000);
                 };
 
-                socket.onerror = () => {
-                    pill.classList.remove('online');
-                };
+                socket.onerror = () => { };
             } catch (e) {
                 console.error(e);
-                setTimeout(connectWs, 2000);
+                setTimeout(connectWs, 3000);
             }
         }
         connectWs();
@@ -353,13 +359,19 @@
                 try { window.navigator.vibrate(30); } catch (e) { }
             }
 
+            const payload = {
+                type: 'REMOTE_KEY',
+                deviceId: currentDeviceId,
+                key: key
+            };
+
+            if (localChannel) {
+                try { localChannel.postMessage(payload); } catch (e) { }
+            }
+
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    type: 'REMOTE_KEY',
-                    deviceId: currentDeviceId,
-                    key: key
-                }));
-            } else {
+                socket.send(JSON.stringify(payload));
+            } else if (!localChannel) {
                 console.warn("Socket no está conectado al Bridge");
                 pill.classList.remove('online');
                 statusText.innerText = `Reconectando al Bridge... (Tecla ${key} guardada)`;

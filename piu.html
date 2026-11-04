@@ -147,15 +147,17 @@
         document.getElementById('piu-title-text').innerText = `PIU - DISPOSITIVO ${currentDeviceId}`;
         document.title = `PIU [${currentDeviceId}] - TransMilenio`;
 
+        const localChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('tca_simulator_channel') : null;
+
         function getWsUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const customHost = params.get('ws') || params.get('ip');
+            if (customHost && window.location.protocol !== 'https:') {
+                return `ws://${customHost}:8080`;
+            }
             let host = window.location.hostname || 'localhost';
             if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
-                let savedIp = localStorage.getItem('local_pc_ip');
-                if (!savedIp) {
-                    savedIp = prompt(`Ingresa la IP de la PC con el Bridge para el PIU ${currentDeviceId}:`, "192.168.1.");
-                    if (savedIp) localStorage.setItem('local_pc_ip', savedIp);
-                }
-                if (savedIp) return `ws://${savedIp}:8080`;
+                return 'ws://localhost:8080';
             }
             return `ws://${host}:8080`;
         }
@@ -183,6 +185,40 @@
             statusMsg.style.display = "block";
         }
 
+        function handlePiuData(data) {
+            if (!data) return;
+            if (data.deviceId && data.deviceId !== currentDeviceId) {
+                return;
+            }
+            if (data.type === 'PIU_UPDATE') {
+                if (data.state === 'IDLE') {
+                    clearDisplay();
+                } else if (data.state === 'CARD_DETECTED') {
+                    clearDisplay();
+                    initialEl.innerText = formatMoney(data.balance);
+                    initialEl.classList.remove('empty');
+                    statusMsg.innerText = "TARJETA DETECTADA";
+                } else if (data.state === 'SUCCESS') {
+                    statusMsg.innerText = "RECARGA EXITOSA";
+                    initialEl.innerText = formatMoney(data.previousBalance);
+                    rechargeEl.innerText = formatMoney(data.amount);
+                    finalEl.innerText = formatMoney(data.total);
+
+                    initialEl.classList.remove('empty');
+                    rechargeEl.classList.remove('empty');
+                    finalEl.classList.remove('empty');
+                }
+            }
+            if (data.type === 'CARD_REMOVED') {
+                clearDisplay();
+            }
+        }
+
+        if (localChannel) {
+            piuDot.classList.add('online');
+            localChannel.onmessage = (event) => handlePiuData(event.data);
+        }
+
         function connectWs() {
             try {
                 const wsUrl = getWsUrl();
@@ -194,46 +230,16 @@
                 };
 
                 socket.onclose = () => {
-                    piuDot.classList.remove('online');
+                    if (!localChannel) piuDot.classList.remove('online');
                     setTimeout(connectWs, 3000);
                 };
 
-                socket.onerror = () => {
-                    piuDot.classList.remove('online');
-                };
+                socket.onerror = () => { };
 
                 socket.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-
-                        // Filtrar por ID de dispositivo: solo procesar si es para este dispositivo
-                        if (data.deviceId && data.deviceId !== currentDeviceId) {
-                            return; // Ignorar evento de otro dispositivo
-                        }
-
-                        if (data.type === 'PIU_UPDATE') {
-                            if (data.state === 'IDLE') {
-                                clearDisplay();
-                            } else if (data.state === 'CARD_DETECTED') {
-                                clearDisplay();
-                                initialEl.innerText = formatMoney(data.balance);
-                                initialEl.classList.remove('empty');
-                                statusMsg.innerText = "TARJETA DETECTADA";
-                            } else if (data.state === 'SUCCESS') {
-                                statusMsg.innerText = "RECARGA EXITOSA";
-                                initialEl.innerText = formatMoney(data.previousBalance);
-                                rechargeEl.innerText = formatMoney(data.amount);
-                                finalEl.innerText = formatMoney(data.total);
-
-                                initialEl.classList.remove('empty');
-                                rechargeEl.classList.remove('empty');
-                                finalEl.classList.remove('empty');
-                            }
-                        }
-
-                        if (data.type === 'CARD_REMOVED') {
-                            clearDisplay();
-                        }
+                        handlePiuData(data);
                     } catch (e) {
                         console.error("Error procesando mensaje en PIU:", e);
                     }

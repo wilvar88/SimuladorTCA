@@ -180,9 +180,58 @@ function setTerminalDevice(newId) {
 }
 
 // INITIALIZATION
+const DB_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8ihPAX5tJ7UJ-jbKCp-bCvmnVBWrRrbeq_aaWVCI28nZt_xaouhaRrx85MSl_VBMH1cGtMVF9CNeY/pub?output=csv";
+const localChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('tca_simulator_channel') : null;
+
+async function fetchDatabaseDirectly() {
+    try {
+        const res = await fetch(DB_CSV_URL, { cache: 'no-store' });
+        if (res.ok) {
+            const text = await res.text();
+            if (text && text.length > 20) {
+                parseCSVDatabase(text);
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn("⚠️ Intentando cargar respaldo local de DB:", e.message);
+    }
+    try {
+        const backupRes = await fetch('db_local_backup.csv');
+        if (backupRes.ok) {
+            const backupText = await backupRes.text();
+            if (backupText && backupText.length > 20) {
+                parseCSVDatabase(backupText);
+                return;
+            }
+        }
+    } catch (e) { }
+}
+
+if (localChannel) {
+    localChannel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+        if (data.type === 'REMOTE_KEY') {
+            if (data.deviceId && data.deviceId !== currentDeviceId) return;
+            processFunction(data.key);
+        } else if (data.type === 'CARD_DETECTED') {
+            if (data.deviceId && data.deviceId !== currentDeviceId) {
+                showDeviceMismatchNotification(data.deviceId, data.readerName);
+                return;
+            }
+            onCardDetected(data.uid, data.atr, data.staticId, data.tagType);
+        } else if (data.type === 'CARD_REMOVED') {
+            if (data.deviceId && data.deviceId !== currentDeviceId) return;
+            onCardRemoved();
+        }
+    };
+}
+
 window.onload = () => {
     updateTerminalDeviceUI();
     startTime();
+    fetchDatabaseDirectly();
     connectBridge();
     document.addEventListener('keydown', handleKeyPress);
     window.focus();
@@ -207,14 +256,15 @@ function startTime() {
 
 // DETECCIÓN INTELIGENTE DE URL PARA EL BRIDGE (Local y Vercel)
 function getWsUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const customHost = params.get('ws') || params.get('ip');
+    if (customHost && window.location.protocol !== 'https:') {
+        return `ws://${customHost}:8080`;
+    }
     let host = window.location.hostname || 'localhost';
+    // Desde HTTPS (Vercel), los navegadores permiten ws://localhost:8080 para conectar con el Bridge de esta PC sin bloqueo de Mixed Content
     if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
-        let savedIp = localStorage.getItem('local_pc_ip');
-        if (!savedIp) {
-            savedIp = prompt(`Ingresa la IP local de la PC con los lectores para la Terminal ${currentDeviceId}:`, "192.168.1.");
-            if (savedIp) localStorage.setItem('local_pc_ip', savedIp);
-        }
-        if (savedIp) return `ws://${savedIp}:8080`;
+        return 'ws://localhost:8080';
     }
     return `ws://${host}:8080`;
 }
@@ -264,12 +314,11 @@ function connectBridge() {
     };
 
     ws.onclose = () => {
-        console.warn("❌ WebSocket desconectado. Reintentando...");
         dot.classList.remove('online');
         const dbStatus = document.getElementById('db-status');
-        if (dbStatus) {
-            dbStatus.innerText = "DB: Desconectado";
-            dbStatus.style.color = "#ff0000";
+        if (dbStatus && Object.keys(cardProfiles).length === 0) {
+            dbStatus.innerText = "DB: Sincronizando...";
+            fetchDatabaseDirectly();
         }
         setTimeout(connectBridge, 3000);
     };
@@ -277,7 +326,9 @@ function connectBridge() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (data.type === 'CARD_DETECTED') {
+            if (data.type === 'DEVICES_INFO' && data.localIp) {
+                localStorage.setItem('local_pc_ip', data.localIp);
+            } else if (data.type === 'CARD_DETECTED') {
                 // Notificar si la tarjeta fue leída en otro lector para que el usuario no se confunda
                 if (data.deviceId && data.deviceId !== currentDeviceId) {
                     showDeviceMismatchNotification(data.deviceId, data.readerName);
@@ -310,13 +361,17 @@ function connectBridge() {
  * @param {Object} extra - Datos adicionales (balance, amount, previousBalance, total).
  */
 function updatePIU(state, extra = {}) {
+    const payload = {
+        type: 'PIU_UPDATE',
+        deviceId: currentDeviceId,
+        state: state,
+        ...extra
+    };
+    if (localChannel) {
+        try { localChannel.postMessage(payload); } catch (e) { }
+    }
     if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            type: 'PIU_UPDATE',
-            deviceId: currentDeviceId,
-            state: state,
-            ...extra
-        }));
+        ws.send(JSON.stringify(payload));
     }
 }
 

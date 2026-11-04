@@ -52,7 +52,7 @@ git init
 git add .
 git commit -m "feat: soporte multi-dispositivo 3 lectores ACR1251"
 git branch -M main
-git remote add origin https://github.com/TU_USUARIO/TU_REPOSITORIO.git
+git remote add origin https://github.com/wilvar88/SimuladorTCA.git
 git push -u origin main
 ```
 

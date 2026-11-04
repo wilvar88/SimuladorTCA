@@ -847,11 +847,17 @@
             if (box.children.length > 30) box.removeChild(box.lastChild);
         }
 
+        const DB_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8ihPAX5tJ7UJ-jbKCp-bCvmnVBWrRrbeq_aaWVCI28nZt_xaouhaRrx85MSl_VBMH1cGtMVF9CNeY/pub?output=csv";
+
         function getWsUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const customHost = params.get('ws') || params.get('ip');
+            if (customHost && window.location.protocol !== 'https:') {
+                return `ws://${customHost}:8080`;
+            }
             let host = window.location.hostname || 'localhost';
             if (host.includes('vercel.app') || (window.location.protocol === 'https:' && host !== 'localhost')) {
-                let savedIp = localStorage.getItem('local_pc_ip');
-                if (savedIp) return `ws://${savedIp}:8080`;
+                return 'ws://localhost:8080';
             }
             return `ws://${host}:8080`;
         }
@@ -864,6 +870,35 @@
         let hubDbProfiles = {};
         let lastScannedUid = "";
         let lastScannedAtr = "";
+
+        async function fetchHubDatabaseDirectly() {
+            try {
+                const res = await fetch(DB_CSV_URL, { cache: 'no-store' });
+                if (res.ok) {
+                    const text = await res.text();
+                    if (text && text.length > 20) {
+                        parseHubDB(text);
+                        dbDot.classList.add('active');
+                        const lines = text.split(/\r?\n/).filter(l => l.trim()).length - 1;
+                        dbLabel.innerText = `DB: OK (${lines} registros)`;
+                        return;
+                    }
+                }
+            } catch (e) { }
+            try {
+                const backupRes = await fetch('db_local_backup.csv');
+                if (backupRes.ok) {
+                    const text = await backupRes.text();
+                    if (text && text.length > 20) {
+                        parseHubDB(text);
+                        dbDot.classList.add('active');
+                        const lines = text.split(/\r?\n/).filter(l => l.trim()).length - 1;
+                        dbLabel.innerText = `DB: OK (${lines} registros)`;
+                    }
+                }
+            } catch (e) { }
+        }
+        fetchHubDatabaseDirectly();
 
         function parseHubDB(csvText) {
             try {
@@ -970,6 +1005,7 @@
                         } else if (data.type === 'CARD_REMOVED') {
                             logEvent(`📤 Tarjeta retirada de <strong>Dispositivo ${data.deviceId || 'Desconocido'}</strong>`, '');
                         } else if (data.type === 'DEVICES_INFO') {
+                            if (data.localIp) localStorage.setItem('local_pc_ip', data.localIp);
                             updateDevicesInfo(data);
                         } else if (data.type === 'DB_SYNC') {
                             parseHubDB(data.data || '');
@@ -1031,32 +1067,30 @@
             const img = document.getElementById('modal-qr-img');
             const link = document.getElementById('modal-qr-link');
 
-            let host = window.location.host;
-            let protocol = window.location.protocol;
+            const path = (type === 'keyboard') ? 'keyboard.html' : 'piu.html';
+            const baseUrl = new URL(path, window.location.href);
+            baseUrl.searchParams.set('device', devId);
 
-            if (host.includes('localhost') || host.includes('127.0.0.1') || protocol === 'file:') {
-                let savedIp = localStorage.getItem('local_pc_ip');
-                const userIp = prompt(`Para conectar tu celular al Dispositivo ${devId}:\nEscribe la IP local de tu PC:`, savedIp || "");
-                if (userIp) {
-                    localStorage.setItem('local_pc_ip', userIp);
-                    host = `${userIp}:3000`;
-                    protocol = 'http:';
-                }
+            const host = window.location.hostname;
+            const savedIp = localStorage.getItem('local_pc_ip');
+            if ((host === 'localhost' || host === '127.0.0.1') && savedIp && savedIp !== 'localhost') {
+                baseUrl.hostname = savedIp;
+                baseUrl.port = '3000';
+                baseUrl.protocol = 'http:';
             }
 
-            const path = (type === 'keyboard') ? 'keyboard.html' : 'piu.html';
-            const finalUrl = `${protocol}//${host}/${path}?device=${devId}`;
+            const finalUrl = baseUrl.toString();
 
             if (type === 'keyboard') {
                 title.innerText = `Teclado Virtual TCA - Dispositivo ${devId}`;
-                desc.innerText = `Escanea el QR para usar tu celular como teclado del Dispositivo ${devId}`;
+                desc.innerText = `Escanea el QR o abre en otra pestaña para usar el teclado del Dispositivo ${devId}`;
             } else {
                 title.innerText = `Pantalla PIU - Dispositivo ${devId}`;
-                desc.innerText = `Escanea el QR para ver la pantalla del usuario del Dispositivo ${devId}`;
+                desc.innerText = `Escanea el QR o abre en otra pestaña para ver el PIU del Dispositivo ${devId}`;
             }
 
             img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(finalUrl)}`;
-            link.href = finalUrl;
+            link.href = `${path}?device=${devId}`;
             link.innerText = `Abrir en nueva pestaña (?device=${devId})`;
 
             modal.classList.add('active');

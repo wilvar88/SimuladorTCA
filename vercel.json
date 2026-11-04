@@ -1,7 +1,13 @@
 {
   "version": 2,
-  "name": "simulador-tca-recaudo-bogota",
-  "cleanUrls": true,
+  "installCommand": "echo 'Static deployment - skipping local hardware bridge dependencies'",
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/hub", "destination": "/hub.html" },
+    { "source": "/keyboard", "destination": "/keyboard.html" },
+    { "source": "/piu", "destination": "/piu.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

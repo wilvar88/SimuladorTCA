@@ -4,6 +4,22 @@ const http = require('http'); // Librería para servidor HTTP (servir archivos l
 const https = require('https'); // Librería para peticiones HTTPS (Google Sheets)
 const fs = require('fs'); // Sistema de archivos para leer index.html, css, js
 const path = require('path'); // Manejo de rutas de archivos
+const os = require('os'); // Información de red local
+
+function getLocalIpAddress() {
+    try {
+        const interfaces = os.networkInterfaces();
+        for (const [name, addrs] of Object.entries(interfaces)) {
+            if (/loopback|virtual|vmware|vbox|wsl/i.test(name)) continue;
+            for (const addr of addrs) {
+                if (addr.family === 'IPv4' && !addr.internal && !addr.address.startsWith('169.254.')) {
+                    return addr.address;
+                }
+            }
+        }
+    } catch (e) { }
+    return 'localhost';
+}
 
 // Manejo de errores globales para evitar que la aplicación se cierre inesperadamente
 process.on('uncaughtException', (err) => {
@@ -296,7 +312,8 @@ wss.on('connection', (ws) => {
     ws.send(JSON.stringify({
         type: 'DEVICES_INFO',
         devices: devicesConfig.devices,
-        activeReaders: Array.from(activeCardReaders.keys())
+        activeReaders: Array.from(activeCardReaders.keys()),
+        localIp: getLocalIpAddress()
     }));
 
     ws.on('message', (message) => {
@@ -316,7 +333,8 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({
                     type: 'DEVICES_INFO',
                     devices: devicesConfig.devices,
-                    activeReaders: Array.from(activeCardReaders.keys())
+                    activeReaders: Array.from(activeCardReaders.keys()),
+                    localIp: getLocalIpAddress()
                 }));
                 return;
             }
